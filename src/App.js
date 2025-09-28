@@ -1,4 +1,4 @@
-import React, { useState, useContext, createContext } from 'react';
+import React, { useState, useContext, createContext, useEffect } from 'react';
 
 // ===== NOTIFICATION SYSTEM =====
 const NotificationContext = createContext();
@@ -138,7 +138,6 @@ const validators = {
 
 // ===== WHATSAPP UTILITIES =====
 const whatsappUtils = {
-  // Genera il messaggio di convocazione per WhatsApp
   generateConvocationMessage: (event, team) => {
     const eventDate = new Date(event.date);
     const formattedDate = eventDate.toLocaleDateString('it-IT', { 
@@ -167,20 +166,17 @@ const whatsappUtils = {
     return message;
   },
 
-  // Genera link WhatsApp per gruppo squadra
   generateGroupLink: (message) => {
     const encodedMessage = encodeURIComponent(message);
     return `https://wa.me/?text=${encodedMessage}`;
   },
 
-  // Genera link WhatsApp per giocatore specifico
   generatePlayerLink: (phone, message) => {
     const cleanPhone = phone.replace(/[^0-9]/g, '');
     const encodedMessage = encodeURIComponent(message);
     return `https://wa.me/${cleanPhone}?text=${encodedMessage}`;
   },
 
-  // Genera messaggio promemoria
   generateReminderMessage: (event, team, responses, players) => {
     const eventDate = new Date(event.date);
     const formattedDate = eventDate.toLocaleDateString('it-IT', { 
@@ -212,6 +208,39 @@ const whatsappUtils = {
     message += `Grazie! - ${team.coach.name}`;
     
     return message;
+  }
+};
+
+// ===== LOCALSTORAGE UTILITIES =====
+const saveToStorage = (key, data) => {
+  try {
+    const serializedData = JSON.stringify(data, (key, value) => {
+      if (value instanceof Date) {
+        return { __type: 'Date', value: value.toISOString() };
+      }
+      return value;
+    });
+    localStorage.setItem(key, serializedData);
+  } catch (error) {
+    console.error('Errore salvataggio localStorage:', error);
+  }
+};
+
+const loadFromStorage = (key, defaultValue) => {
+  try {
+    const stored = localStorage.getItem(key);
+    if (!stored) return defaultValue;
+    
+    const parsed = JSON.parse(stored, (key, value) => {
+      if (value && value.__type === 'Date') {
+        return new Date(value.value);
+      }
+      return value;
+    });
+    return parsed;
+  } catch (error) {
+    console.error('Errore caricamento localStorage:', error);
+    return defaultValue;
   }
 };
 
@@ -2255,10 +2284,22 @@ const EventDetailScreen = ({ event, team, responses, players, onBack, onDeleteEv
 
 // ===== MAIN APP =====
 const App = () => {
+  // ===== LOCALSTORAGE HOOKS =====
+  const [events, setEvents] = useState(() => loadFromStorage('presenze_events', initialEvents));
+  const [responses, setResponses] = useState(() => loadFromStorage('presenze_responses', initialResponses));
+  
+  // Salvataggio automatico quando cambiano gli stati
+  useEffect(() => {
+    saveToStorage('presenze_events', events);
+  }, [events]);
+
+  useEffect(() => {
+    saveToStorage('presenze_responses', responses);
+  }, [responses]);
+
+  // ===== REGULAR STATE =====
   const [currentUser, setCurrentUser] = useState(null);
   const [currentScreen, setCurrentScreen] = useState('auth');
-  const [events, setEvents] = useState(initialEvents);
-  const [responses, setResponses] = useState(initialResponses);
   const [screenData, setScreenData] = useState({});
 
   const handleLogin = (userType) => {
@@ -2412,7 +2453,7 @@ const App = () => {
               responses={responses}
               onViewEvent={handleViewEvent}
               onLogout={handleLogout}
-/>
+            />
           )}
           
           {currentScreen === 'player-response' && currentEvent && currentTeam && currentPlayer && (
