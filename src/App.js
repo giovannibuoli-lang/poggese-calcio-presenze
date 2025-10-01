@@ -839,7 +839,7 @@ const AuthScreen = ({ onLogin }) => {
               backgroundClip: 'text',
               marginBottom: '8px'
             }}>
-              PresenzaCalcio
+              Convocazioni Calcio
             </div>
             <div style={{
               ...styles.text,
