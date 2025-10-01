@@ -1,7 +1,7 @@
 {
-  "name": "PresenzaCalcio",
-  "short_name": "PresenzaCalcio",
-  "description": "Gestione presenze squadra calcio",
+  "name": "Convocazioni Calcio",
+  "short_name": "Convocazioni",
+  "description": "Gestione convocazioni e presenze squadra calcio",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#1E88E5",
