@@ -770,16 +770,10 @@ const AuthScreen = ({ onLogin }) => {
   const [isLoading, setIsLoading] = useState(false);
   const { addNotification } = useNotification();
   
-  const handleLogin = async (type) => {
+ const handleLogin = async (type) => {
   try {
     await signInAnonymously(auth);
-    if (type === 'coach') {
-      setCurrentUser({ type: 'coach', teamId: 'team1' });
-      setCurrentScreen('coach-dashboard');
-    } else {
-      setCurrentUser({ type: 'player', teamId: 'team1', ...mockPlayers['team1'][0] });
-      setCurrentScreen('player-dashboard');
-    }
+    onLogin(type);
   } catch (error) {
     console.error('Errore login:', error);
     alert('Errore durante il login');
