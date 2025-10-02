@@ -771,14 +771,20 @@ const AuthScreen = ({ onLogin }) => {
   const { addNotification } = useNotification();
   
   const handleLogin = async (type) => {
-    setIsLoading(true);
-    addNotification(`Accesso come ${type === 'coach' ? 'Allenatore' : 'Giocatore'}...`, 'info', 2000);
-    
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    onLogin(type);
-    setIsLoading(false);
-  };
+  try {
+    await signInAnonymously(auth);
+    if (type === 'coach') {
+      setCurrentUser({ type: 'coach', teamId: 'team1' });
+      setCurrentScreen('coach-dashboard');
+    } else {
+      setCurrentUser({ type: 'player', teamId: 'team1', ...mockPlayers['team1'][0] });
+      setCurrentScreen('player-dashboard');
+    }
+  } catch (error) {
+    console.error('Errore login:', error);
+    alert('Errore durante il login');
+  }
+};
   
   return (
     <div style={styles.container}>
