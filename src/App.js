@@ -1,4 +1,7 @@
 import React, { useState, useContext, createContext, useEffect } from 'react';
+import { auth, db } from './firebase';
+import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
+import { collection, addDoc, getDocs, onSnapshot, Timestamp } from 'firebase/firestore';
 
 // ===== NOTIFICATION SYSTEM =====
 const NotificationContext = createContext();
