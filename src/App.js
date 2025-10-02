@@ -2299,8 +2299,24 @@ const App = () => {
   
   // Salvataggio automatico quando cambiano gli stati
   useEffect(() => {
-    saveToStorage('presenze_events', events);
-  }, [events]);
+  if (!currentUser) return;
+  
+  const unsubscribe = onSnapshot(
+    collection(db, 'events'),
+    (snapshot) => {
+      const eventsData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setEvents(eventsData);
+    },
+    (error) => {
+      console.error('Errore caricamento eventi:', error);
+    }
+  );
+  
+  return () => unsubscribe();
+}, [currentUser]);
 
   useEffect(() => {
     saveToStorage('presenze_responses', responses);
