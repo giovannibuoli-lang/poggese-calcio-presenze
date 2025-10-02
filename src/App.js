@@ -2331,9 +2331,20 @@ const App = () => {
     }
   };
 
-  const handleCreateEvent = () => {
-    setCurrentScreen('create-event');
-  };
+  const handleCreateEvent = async (eventData) => {
+  try {
+    const eventDate = new Date(eventData.date);
+    await addDoc(collection(db, 'events'), {
+      ...eventData,
+      date: Timestamp.fromDate(eventDate),
+      teamId: 'team1',
+      createdAt: Timestamp.now()
+    });
+  } catch (error) {
+    console.error('Errore creazione evento:', error);
+    alert('Errore nel salvare l\'evento');
+  }
+};
 
   const handleSaveEvent = (newEvent) => {
     console.log('🎯 APP: Ricevuto nuovo evento da salvare:', newEvent);
