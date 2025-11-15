@@ -765,8 +765,7 @@ const PlayerCard = ({ player, response, onStatusChange, isCoach = false }) => {
 const AuthScreen = ({ onLogin }) => {
   const [userType, setUserType] = useState('coach');
   const [isLoading, setIsLoading] = useState(false);
-  const { addNotification } = useNotification();
-  
+
 const handleLogin = (type) => {
     setIsLoading(true);
     setTimeout(() => {
