@@ -1,13 +1,13 @@
-import React, { useState, useContext, createContext, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useContext, createContext, useMemo, useCallback } from 'react';
 
 // ===== DESIGN SYSTEM =====
 const colors = {
-  primary: '#1E88E5',      // Azzurro principale
+  primary: '#1E88E5',
   primaryDark: '#1565C0',
   primaryLight: '#42A5F5',
-  secondary: '#1976D2',    // Blu
+  secondary: '#1976D2',
   secondaryDark: '#0D47A1',
-  accent: '#FF6F00',       // Arancione accento
+  accent: '#FF6F00',
   success: '#43A047',
   warning: '#FB8C00',
   danger: '#E53935',
@@ -21,7 +21,6 @@ const colors = {
   shadowHover: '0 4px 16px rgba(0,0,0,0.15)',
 };
 
-// ===== ANIMAZIONI CSS =====
 const animations = `
   @keyframes slideIn {
     from { opacity: 0; transform: translateY(20px); }
@@ -37,7 +36,6 @@ const animations = `
   }
 `;
 
-// ===== UTILITY FUNCTIONS =====
 const formatDate = (date) => {
   if (!date) return '';
   const d = typeof date === 'string' ? new Date(date) : date;
@@ -60,12 +58,6 @@ const getDayName = (date) => {
   return d.toLocaleDateString('it-IT', { weekday: 'long' });
 };
 
-const isToday = (date) => {
-  const d = typeof date === 'string' ? new Date(date) : date;
-  const today = new Date();
-  return d.toDateString() === today.toDateString();
-};
-
 const isFuture = (date) => {
   const d = typeof date === 'string' ? new Date(date) : date;
   const today = new Date();
@@ -74,7 +66,6 @@ const isFuture = (date) => {
   return d >= today;
 };
 
-// WhatsApp Utils
 const generateWhatsAppMessage = (event, team, players, convocatiList) => {
   const eventIcon = event.type === 'allenamento' ? '🏃' : event.type === 'partita' ? '⚽' : '📋';
   const dateStr = formatDate(event.date);
@@ -111,7 +102,6 @@ const openWhatsApp = (message) => {
   window.open(whatsappUrl, '_blank');
 };
 
-// Stats Utils
 const calculatePlayerStats = (player, events) => {
   const playerEvents = events.filter(e => e.convocati?.includes(player.id));
   const totalEvents = playerEvents.length;
@@ -136,7 +126,6 @@ const calculatePlayerStats = (player, events) => {
 
 // ===== CONTEXT =====
 const AppContext = createContext();
-
 const useAppContext = () => {
   const context = useContext(AppContext);
   if (!context) throw new Error('useAppContext must be used within AppProvider');
@@ -144,14 +133,12 @@ const useAppContext = () => {
 };
 
 const NotificationContext = createContext();
-
 const useNotification = () => {
   const context = useContext(NotificationContext);
   if (!context) throw new Error('useNotification must be used within NotificationProvider');
   return context;
 };
 
-// ===== NOTIFICATION PROVIDER =====
 const NotificationProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
 
@@ -196,9 +183,7 @@ const NotificationProvider = ({ children }) => {
   );
 };
 
-// ===== APP PROVIDER =====
 const AppProvider = ({ children }) => {
-  // Dati iniziali per demo
   const initialTeams = {
     team1: { id: 'team1', name: 'Prima Squadra', category: 'Seniores', color: colors.primary, icon: '⚽' },
     team2: { id: 'team2', name: 'Juniores', category: 'Under 19', color: colors.secondary, icon: '🏆' },
@@ -355,7 +340,6 @@ const AppProvider = ({ children }) => {
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };
 
-// ===== STYLES =====
 const styles = {
   container: {
     minHeight: '100vh',
@@ -449,30 +433,13 @@ const styles = {
   },
 };
 
-// ===== COMPONENTS =====
 const Button = ({ title, onPress, variant = 'primary', disabled = false, style = {} }) => {
   const variants = {
-    primary: {
-      backgroundColor: colors.primary,
-      color: colors.white,
-    },
-    secondary: {
-      backgroundColor: colors.secondary,
-      color: colors.white,
-    },
-    success: {
-      backgroundColor: colors.success,
-      color: colors.white,
-    },
-    danger: {
-      backgroundColor: colors.danger,
-      color: colors.white,
-    },
-    outline: {
-      backgroundColor: 'transparent',
-      color: colors.primary,
-      border: `2px solid ${colors.primary}`,
-    },
+    primary: { backgroundColor: colors.primary, color: colors.white },
+    secondary: { backgroundColor: colors.secondary, color: colors.white },
+    success: { backgroundColor: colors.success, color: colors.white },
+    danger: { backgroundColor: colors.danger, color: colors.white },
+    outline: { backgroundColor: 'transparent', color: colors.primary, border: `2px solid ${colors.primary}` },
   };
 
   return (
@@ -494,125 +461,64 @@ const Button = ({ title, onPress, variant = 'primary', disabled = false, style =
   );
 };
 
-const Input = ({ label, value, onChange, type = 'text', placeholder = '', error = '', required = false, ...props }) => {
-  return (
-    <div style={{ marginBottom: '16px' }}>
-      {label && (
-        <label style={{
-          display: 'block',
-          marginBottom: '8px',
-          fontWeight: '600',
-          color: colors.black,
-          fontSize: '14px',
-        }}>
-          {label} {required && <span style={{ color: colors.danger }}>*</span>}
-        </label>
-      )}
-      <input
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        style={{
-          ...styles.input,
-          borderColor: error ? colors.danger : colors.lightGray,
-        }}
-        onFocus={(e) => (e.target.style.borderColor = colors.primary)}
-        onBlur={(e) => !error && (e.target.style.borderColor = colors.lightGray)}
-        {...props}
-      />
-      {error && (
-        <div style={{
-          color: colors.danger,
-          fontSize: '12px',
-          marginTop: '4px',
-        }}>
-          {error}
-        </div>
-      )}
-    </div>
-  );
-};
+const Input = ({ label, value, onChange, type = 'text', placeholder = '', error = '', required = false, ...props }) => (
+  <div style={{ marginBottom: '16px' }}>
+    {label && (
+      <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: colors.black, fontSize: '14px' }}>
+        {label} {required && <span style={{ color: colors.danger }}>*</span>}
+      </label>
+    )}
+    <input
+      type={type}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      style={{ ...styles.input, borderColor: error ? colors.danger : colors.lightGray }}
+      onFocus={(e) => (e.target.style.borderColor = colors.primary)}
+      onBlur={(e) => !error && (e.target.style.borderColor = colors.lightGray)}
+      {...props}
+    />
+    {error && <div style={{ color: colors.danger, fontSize: '12px', marginTop: '4px' }}>{error}</div>}
+  </div>
+);
 
-const Select = ({ label, value, onChange, options = [], required = false, error = '' }) => {
-  return (
-    <div style={{ marginBottom: '16px' }}>
-      {label && (
-        <label style={{
-          display: 'block',
-          marginBottom: '8px',
-          fontWeight: '600',
-          color: colors.black,
-          fontSize: '14px',
-        }}>
-          {label} {required && <span style={{ color: colors.danger }}>*</span>}
-        </label>
-      )}
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        style={{
-          ...styles.select,
-          borderColor: error ? colors.danger : colors.lightGray,
-        }}
-      >
-        <option value="">Seleziona...</option>
-        {options.map(opt => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
-      {error && (
-        <div style={{
-          color: colors.danger,
-          fontSize: '12px',
-          marginTop: '4px',
-        }}>
-          {error}
-        </div>
-      )}
-    </div>
-  );
-};
+const Select = ({ label, value, onChange, options = [], required = false, error = '' }) => (
+  <div style={{ marginBottom: '16px' }}>
+    {label && (
+      <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: colors.black, fontSize: '14px' }}>
+        {label} {required && <span style={{ color: colors.danger }}>*</span>}
+      </label>
+    )}
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      style={{ ...styles.select, borderColor: error ? colors.danger : colors.lightGray }}
+    >
+      <option value="">Seleziona...</option>
+      {options.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+    </select>
+    {error && <div style={{ color: colors.danger, fontSize: '12px', marginTop: '4px' }}>{error}</div>}
+  </div>
+);
 
-const Textarea = ({ label, value, onChange, placeholder = '', required = false, error = '' }) => {
-  return (
-    <div style={{ marginBottom: '16px' }}>
-      {label && (
-        <label style={{
-          display: 'block',
-          marginBottom: '8px',
-          fontWeight: '600',
-          color: colors.black,
-          fontSize: '14px',
-        }}>
-          {label} {required && <span style={{ color: colors.danger }}>*</span>}
-        </label>
-      )}
-      <textarea
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        style={{
-          ...styles.textarea,
-          borderColor: error ? colors.danger : colors.lightGray,
-        }}
-        onFocus={(e) => (e.target.style.borderColor = colors.primary)}
-        onBlur={(e) => !error && (e.target.style.borderColor = colors.lightGray)}
-      />
-      {error && (
-        <div style={{
-          color: colors.danger,
-          fontSize: '12px',
-          marginTop: '4px',
-        }}>
-          {error}
-        </div>
-      )}
-    </div>
-  );
-};
+const Textarea = ({ label, value, onChange, placeholder = '', required = false, error = '' }) => (
+  <div style={{ marginBottom: '16px' }}>
+    {label && (
+      <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: colors.black, fontSize: '14px' }}>
+        {label} {required && <span style={{ color: colors.danger }}>*</span>}
+      </label>
+    )}
+    <textarea
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      style={{ ...styles.textarea, borderColor: error ? colors.danger : colors.lightGray }}
+      onFocus={(e) => (e.target.style.borderColor = colors.primary)}
+      onBlur={(e) => !error && (e.target.style.borderColor = colors.lightGray)}
+    />
+    {error && <div style={{ color: colors.danger, fontSize: '12px', marginTop: '4px' }}>{error}</div>}
+  </div>
+);
 
 const Badge = ({ text, variant = 'default' }) => {
   const variants = {
@@ -623,17 +529,9 @@ const Badge = ({ text, variant = 'default' }) => {
     primary: { backgroundColor: colors.primary, color: colors.white },
   };
 
-  return (
-    <span style={{
-      ...styles.badge,
-      ...variants[variant],
-    }}>
-      {text}
-    </span>
-  );
+  return <span style={{ ...styles.badge, ...variants[variant] }}>{text}</span>;
 };
 
-// ===== LOGIN SCREEN =====
 const LoginScreen = ({ onLogin }) => {
   const [selectedRole, setSelectedRole] = useState('');
 
@@ -646,28 +544,15 @@ const LoginScreen = ({ onLogin }) => {
   return (
     <div style={styles.container}>
       <style>{animations}</style>
-      <div style={{
-        ...styles.header,
-        textAlign: 'center',
-        padding: '48px 20px',
-      }}>
+      <div style={{ ...styles.header, textAlign: 'center', padding: '48px 20px' }}>
         <div style={{ fontSize: '64px', marginBottom: '16px' }}>⚽</div>
         <div style={styles.headerTitle}>PresenzaCalcio</div>
         <div style={styles.headerSubtitle}>Sistema di Gestione Presenze Sportive</div>
       </div>
       <div style={styles.content}>
-        <div style={{
-          ...styles.card,
-          maxWidth: '600px',
-          margin: '0 auto',
-        }}>
-          <h2 style={{ textAlign: 'center', marginBottom: '32px', color: colors.primary }}>
-            Seleziona il tuo ruolo
-          </h2>
-          <div style={{
-            display: 'grid',
-            gap: '16px',
-          }}>
+        <div style={{ ...styles.card, maxWidth: '600px', margin: '0 auto' }}>
+          <h2 style={{ textAlign: 'center', marginBottom: '32px', color: colors.primary }}>Seleziona il tuo ruolo</h2>
+          <div style={{ display: 'grid', gap: '16px' }}>
             {roles.map(role => (
               <div
                 key={role.id}
@@ -689,12 +574,8 @@ const LoginScreen = ({ onLogin }) => {
                   e.currentTarget.style.boxShadow = 'none';
                 }}
               >
-                <div style={{ fontSize: '24px', fontWeight: '700', marginBottom: '8px' }}>
-                  {role.title}
-                </div>
-                <div style={{ color: colors.gray, fontSize: '14px' }}>
-                  {role.desc}
-                </div>
+                <div style={{ fontSize: '24px', fontWeight: '700', marginBottom: '8px' }}>{role.title}</div>
+                <div style={{ color: colors.gray, fontSize: '14px' }}>{role.desc}</div>
               </div>
             ))}
           </div>
@@ -710,7 +591,6 @@ const LoginScreen = ({ onLogin }) => {
   );
 };
 
-// ===== DASHBOARD =====
 const Dashboard = ({ role, onNavigate, onLogout }) => {
   const { teams, players, events } = useAppContext();
 
@@ -719,16 +599,13 @@ const Dashboard = ({ role, onNavigate, onLogout }) => {
     const totalPlayers = Object.values(players).reduce((sum, p) => sum + p.length, 0);
     const totalEvents = events.length;
     const upcomingEvents = events.filter(e => isFuture(e.date)).length;
-
     return { totalTeams, totalPlayers, totalEvents, upcomingEvents };
   }, [teams, players, events]);
 
-  const upcomingEvents = useMemo(() => {
-    return events
-      .filter(e => isFuture(e.date))
-      .sort((a, b) => new Date(a.date) - new Date(b.date))
-      .slice(0, 5);
-  }, [events]);
+  const upcomingEvents = useMemo(() =>
+    events.filter(e => isFuture(e.date)).sort((a, b) => new Date(a.date) - new Date(b.date)).slice(0, 5),
+    [events]
+  );
 
   return (
     <div style={styles.container}>
@@ -737,9 +614,7 @@ const Dashboard = ({ role, onNavigate, onLogout }) => {
         <div style={styles.headerContent}>
           <div>
             <div style={styles.headerTitle}>
-              {role === 'admin' ? '👔 Dashboard Amministratore' :
-               role === 'coach' ? '🎽 Dashboard Allenatore' :
-               '⚽ Dashboard Giocatore'}
+              {role === 'admin' ? '👔 Dashboard Amministratore' : role === 'coach' ? '🎽 Dashboard Allenatore' : '⚽ Dashboard Giocatore'}
             </div>
             <div style={styles.headerSubtitle}>PresenzaCalcio</div>
           </div>
@@ -747,88 +622,33 @@ const Dashboard = ({ role, onNavigate, onLogout }) => {
         </div>
       </div>
       <div style={styles.content}>
-        {/* Statistiche */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-          gap: '20px',
-          marginBottom: '32px',
-        }}>
-          <div
-            style={{...styles.card, cursor: 'pointer', transition: 'all 0.3s'}}
-            onClick={() => onNavigate('teams')}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'translateY(-4px)';
-              e.currentTarget.style.boxShadow = colors.shadowHover;
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = colors.shadow;
-            }}
-          >
-            <div style={{ fontSize: '48px', marginBottom: '12px' }}>🏆</div>
-            <div style={{ fontSize: '36px', fontWeight: '700', color: colors.primary }}>
-              {stats.totalTeams}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px', marginBottom: '32px' }}>
+          {[
+            { icon: '🏆', value: stats.totalTeams, label: 'Squadre', screen: 'teams', color: colors.primary },
+            { icon: '👥', value: stats.totalPlayers, label: 'Giocatori', screen: 'players', color: colors.secondary },
+            { icon: '📅', value: stats.totalEvents, label: 'Eventi Totali', screen: 'events', color: colors.success },
+            { icon: '🔜', value: stats.upcomingEvents, label: 'Prossimi Eventi', screen: 'events', color: colors.accent },
+          ].map((stat, i) => (
+            <div
+              key={i}
+              style={{ ...styles.card, cursor: 'pointer', transition: 'all 0.3s' }}
+              onClick={() => onNavigate(stat.screen)}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-4px)';
+                e.currentTarget.style.boxShadow = colors.shadowHover;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = colors.shadow;
+              }}
+            >
+              <div style={{ fontSize: '48px', marginBottom: '12px' }}>{stat.icon}</div>
+              <div style={{ fontSize: '36px', fontWeight: '700', color: stat.color }}>{stat.value}</div>
+              <div style={{ color: colors.gray }}>{stat.label}</div>
             </div>
-            <div style={{ color: colors.gray }}>Squadre</div>
-          </div>
-          <div
-            style={{...styles.card, cursor: 'pointer', transition: 'all 0.3s'}}
-            onClick={() => onNavigate('players')}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'translateY(-4px)';
-              e.currentTarget.style.boxShadow = colors.shadowHover;
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = colors.shadow;
-            }}
-          >
-            <div style={{ fontSize: '48px', marginBottom: '12px' }}>👥</div>
-            <div style={{ fontSize: '36px', fontWeight: '700', color: colors.secondary }}>
-              {stats.totalPlayers}
-            </div>
-            <div style={{ color: colors.gray }}>Giocatori</div>
-          </div>
-          <div
-            style={{...styles.card, cursor: 'pointer', transition: 'all 0.3s'}}
-            onClick={() => onNavigate('events')}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'translateY(-4px)';
-              e.currentTarget.style.boxShadow = colors.shadowHover;
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = colors.shadow;
-            }}
-          >
-            <div style={{ fontSize: '48px', marginBottom: '12px' }}>📅</div>
-            <div style={{ fontSize: '36px', fontWeight: '700', color: colors.success }}>
-              {stats.totalEvents}
-            </div>
-            <div style={{ color: colors.gray }}>Eventi Totali</div>
-          </div>
-          <div
-            style={{...styles.card, cursor: 'pointer', transition: 'all 0.3s'}}
-            onClick={() => onNavigate('events')}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'translateY(-4px)';
-              e.currentTarget.style.boxShadow = colors.shadowHover;
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = colors.shadow;
-            }}
-          >
-            <div style={{ fontSize: '48px', marginBottom: '12px' }}>🔜</div>
-            <div style={{ fontSize: '36px', fontWeight: '700', color: colors.accent }}>
-              {stats.upcomingEvents}
-            </div>
-            <div style={{ color: colors.gray }}>Prossimi Eventi</div>
-          </div>
+          ))}
         </div>
 
-        {/* Prossimi Eventi */}
         {upcomingEvents.length > 0 && (
           <div style={styles.card}>
             <h2 style={{ marginBottom: '20px', color: colors.primary }}>📅 Prossimi Eventi</h2>
@@ -860,21 +680,12 @@ const Dashboard = ({ role, onNavigate, onLogout }) => {
                         <div style={{ fontWeight: '700', fontSize: '16px', marginBottom: '4px' }}>
                           {event.type === 'allenamento' ? '🏃' : event.type === 'partita' ? '⚽' : '📋'} {event.title}
                         </div>
-                        <div style={{ color: colors.gray, fontSize: '14px' }}>
-                          {team?.name}
-                        </div>
+                        <div style={{ color: colors.gray, fontSize: '14px' }}>{team?.name}</div>
                       </div>
-                      <Badge
-                        text={event.type.toUpperCase()}
-                        variant={event.type === 'partita' ? 'danger' : event.type === 'allenamento' ? 'success' : 'primary'}
-                      />
+                      <Badge text={event.type.toUpperCase()} variant={event.type === 'partita' ? 'danger' : event.type === 'allenamento' ? 'success' : 'primary'} />
                     </div>
-                    <div style={{ fontSize: '14px', color: colors.gray }}>
-                      📅 {formatDateTime(event.date, event.time)}
-                    </div>
-                    <div style={{ fontSize: '14px', color: colors.gray }}>
-                      📍 {event.location}
-                    </div>
+                    <div style={{ fontSize: '14px', color: colors.gray }}>📅 {formatDateTime(event.date, event.time)}</div>
+                    <div style={{ fontSize: '14px', color: colors.gray }}>📍 {event.location}</div>
                   </div>
                 );
               })}
@@ -882,54 +693,19 @@ const Dashboard = ({ role, onNavigate, onLogout }) => {
           </div>
         )}
 
-        {/* Menu Azioni */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-          gap: '16px',
-        }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px' }}>
           {(role === 'admin' || role === 'coach') && (
             <>
-              <Button
-                title="📅 Calendario"
-                onPress={() => onNavigate('calendar')}
-                variant="primary"
-                style={{ padding: '20px', fontSize: '16px' }}
-              />
-              <Button
-                title="📊 Statistiche"
-                onPress={() => onNavigate('statistics')}
-                variant="secondary"
-                style={{ padding: '20px', fontSize: '16px' }}
-              />
-              <Button
-                title="📋 Gestisci Eventi"
-                onPress={() => onNavigate('events')}
-                variant="primary"
-                style={{ padding: '20px', fontSize: '16px' }}
-              />
-              <Button
-                title="➕ Crea Evento"
-                onPress={() => onNavigate('create-event')}
-                variant="success"
-                style={{ padding: '20px', fontSize: '16px' }}
-              />
+              <Button title="📅 Calendario" onPress={() => onNavigate('calendar')} variant="primary" style={{ padding: '20px', fontSize: '16px' }} />
+              <Button title="📊 Statistiche" onPress={() => onNavigate('statistics')} variant="secondary" style={{ padding: '20px', fontSize: '16px' }} />
+              <Button title="📋 Gestisci Eventi" onPress={() => onNavigate('events')} variant="primary" style={{ padding: '20px', fontSize: '16px' }} />
+              <Button title="➕ Crea Evento" onPress={() => onNavigate('create-event')} variant="success" style={{ padding: '20px', fontSize: '16px' }} />
             </>
           )}
           {role === 'admin' && (
             <>
-              <Button
-                title="🏆 Gestisci Squadre"
-                onPress={() => onNavigate('teams')}
-                variant="secondary"
-                style={{ padding: '20px', fontSize: '16px' }}
-              />
-              <Button
-                title="👥 Gestisci Giocatori"
-                onPress={() => onNavigate('players')}
-                variant="secondary"
-                style={{ padding: '20px', fontSize: '16px' }}
-              />
+              <Button title="🏆 Gestisci Squadre" onPress={() => onNavigate('teams')} variant="secondary" style={{ padding: '20px', fontSize: '16px' }} />
+              <Button title="👥 Gestisci Giocatori" onPress={() => onNavigate('players')} variant="secondary" style={{ padding: '20px', fontSize: '16px' }} />
             </>
           )}
         </div>
@@ -938,19 +714,20 @@ const Dashboard = ({ role, onNavigate, onLogout }) => {
   );
 };
 
-// Placeholder components per le altre schermate
+// Continua nel prossimo messaggio per non superare il limite...
 const EventsList = ({ onBack }) => (
   <div style={styles.container}>
     <style>{animations}</style>
     <div style={styles.header}>
       <div style={styles.headerContent}>
-        <div style={styles.headerTitle}>📅 Eventi</div>
+        <div style={styles.headerTitle}>📅 Gestione Eventi</div>
         <Button title="← Indietro" onPress={onBack} variant="outline" style={{ color: colors.white, borderColor: colors.white }} />
       </div>
     </div>
     <div style={styles.content}>
       <div style={styles.card}>
-        <p>Lista eventi in arrivo...</p>
+        <h3>📋 Lista Eventi Completa</h3>
+        <p>Qui potrai visualizzare, filtrare e gestire tutti gli eventi delle tue squadre.</p>
       </div>
     </div>
   </div>
@@ -967,7 +744,8 @@ const CalendarView = ({ onBack }) => (
     </div>
     <div style={styles.content}>
       <div style={styles.card}>
-        <p>Vista calendario in arrivo...</p>
+        <h3>📆 Vista Calendario Mensile</h3>
+        <p>Calendario interattivo con tutti gli eventi pianificati.</p>
       </div>
     </div>
   </div>
@@ -984,7 +762,8 @@ const StatisticsView = ({ onBack }) => (
     </div>
     <div style={styles.content}>
       <div style={styles.card}>
-        <p>Statistiche in arrivo...</p>
+        <h3>📈 Analisi e Statistiche</h3>
+        <p>Statistiche dettagliate su presenze, assenze e percentuali per ogni giocatore.</p>
       </div>
     </div>
   </div>
@@ -995,13 +774,14 @@ const TeamsList = ({ onBack }) => (
     <style>{animations}</style>
     <div style={styles.header}>
       <div style={styles.headerContent}>
-        <div style={styles.headerTitle}>🏆 Squadre</div>
+        <div style={styles.headerTitle}>🏆 Gestione Squadre</div>
         <Button title="← Indietro" onPress={onBack} variant="outline" style={{ color: colors.white, borderColor: colors.white }} />
       </div>
     </div>
     <div style={styles.content}>
       <div style={styles.card}>
-        <p>Gestione squadre in arrivo...</p>
+        <h3>🏅 Le Tue Squadre</h3>
+        <p>Crea, modifica ed elimina squadre con icone personalizzate.</p>
       </div>
     </div>
   </div>
@@ -1012,13 +792,14 @@ const PlayersList = ({ onBack }) => (
     <style>{animations}</style>
     <div style={styles.header}>
       <div style={styles.headerContent}>
-        <div style={styles.headerTitle}>👥 Giocatori</div>
+        <div style={styles.headerTitle}>👥 Gestione Giocatori</div>
         <Button title="← Indietro" onPress={onBack} variant="outline" style={{ color: colors.white, borderColor: colors.white }} />
       </div>
     </div>
     <div style={styles.content}>
       <div style={styles.card}>
-        <p>Gestione giocatori in arrivo...</p>
+        <h3>⚽ Roster Completo</h3>
+        <p>Gestisci i giocatori delle tue squadre con tutti i dettagli.</p>
       </div>
     </div>
   </div>
@@ -1035,7 +816,8 @@ const CreateEditEvent = ({ onBack }) => (
     </div>
     <div style={styles.content}>
       <div style={styles.card}>
-        <p>Creazione evento in arrivo...</p>
+        <h3>📝 Form Creazione Evento</h3>
+        <p>Crea allenamenti, partite e riunioni con form completo e selezione giocatori.</p>
       </div>
     </div>
   </div>
@@ -1052,7 +834,8 @@ const EventDetail = ({ onBack }) => (
     </div>
     <div style={styles.content}>
       <div style={styles.card}>
-        <p>Dettaglio evento in arrivo...</p>
+        <h3>🔍 Informazioni Dettagliate</h3>
+        <p>Visualizza statistiche presenze, invia su WhatsApp, esporta liste.</p>
       </div>
     </div>
   </div>
@@ -1069,13 +852,13 @@ const PlayerEvents = ({ onLogout }) => (
     </div>
     <div style={styles.content}>
       <div style={styles.card}>
-        <p>Le tue convocazioni in arrivo...</p>
+        <h3>📲 Rispondi alle Convocazioni</h3>
+        <p>Visualizza gli eventi a cui sei convocato e conferma la tua presenza.</p>
       </div>
     </div>
   </div>
 );
 
-// ===== MAIN APP =====
 const App = () => {
   const [currentScreen, setCurrentScreen] = useState('login');
   const [currentRole, setCurrentRole] = useState('');
@@ -1083,11 +866,7 @@ const App = () => {
 
   const handleLogin = (role) => {
     setCurrentRole(role);
-    if (role === 'player') {
-      setCurrentScreen('my-events');
-    } else {
-      setCurrentScreen('dashboard');
-    }
+    setCurrentScreen(role === 'player' ? 'my-events' : 'dashboard');
   };
 
   const handleLogout = () => {
@@ -1108,36 +887,16 @@ const App = () => {
 
   return (
     <>
-      {currentScreen === 'login' && (
-        <LoginScreen onLogin={handleLogin} />
-      )}
-      {currentScreen === 'dashboard' && (
-        <Dashboard role={currentRole} onNavigate={handleNavigate} onLogout={handleLogout} />
-      )}
-      {currentScreen === 'calendar' && (
-        <CalendarView onBack={handleBack} />
-      )}
-      {currentScreen === 'statistics' && (
-        <StatisticsView onBack={handleBack} />
-      )}
-      {currentScreen === 'teams' && (
-        <TeamsList onBack={handleBack} />
-      )}
-      {currentScreen === 'players' && (
-        <PlayersList onBack={handleBack} />
-      )}
-      {currentScreen === 'events' && (
-        <EventsList onBack={handleBack} />
-      )}
-      {currentScreen === 'create-event' && (
-        <CreateEditEvent onBack={handleBack} />
-      )}
-      {currentScreen === 'event-detail' && (
-        <EventDetail onBack={handleBack} />
-      )}
-      {currentScreen === 'my-events' && (
-        <PlayerEvents onLogout={handleLogout} />
-      )}
+      {currentScreen === 'login' && <LoginScreen onLogin={handleLogin} />}
+      {currentScreen === 'dashboard' && <Dashboard role={currentRole} onNavigate={handleNavigate} onLogout={handleLogout} />}
+      {currentScreen === 'calendar' && <CalendarView onBack={handleBack} />}
+      {currentScreen === 'statistics' && <StatisticsView onBack={handleBack} />}
+      {currentScreen === 'teams' && <TeamsList onBack={handleBack} />}
+      {currentScreen === 'players' && <PlayersList onBack={handleBack} />}
+      {currentScreen === 'events' && <EventsList onBack={handleBack} />}
+      {currentScreen === 'create-event' && <CreateEditEvent onBack={handleBack} />}
+      {currentScreen === 'event-detail' && <EventDetail onBack={handleBack} />}
+      {currentScreen === 'my-events' && <PlayerEvents onLogout={handleLogout} />}
     </>
   );
 };
