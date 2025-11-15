@@ -1,7 +1,7 @@
 import React, { useState, useContext, createContext, useEffect } from 'react';
 import { auth, db } from './firebase';
-import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
-import { collection, addDoc, getDocs, onSnapshot, Timestamp } from 'firebase/firestore';
+import { signInAnonymously } from 'firebase/auth';
+import { collection, addDoc, onSnapshot, Timestamp } from 'firebase/firestore';
 
 // ===== NOTIFICATION SYSTEM =====
 const NotificationContext = createContext();
@@ -768,17 +768,18 @@ const PlayerCard = ({ player, response, onStatusChange, isCoach = false }) => {
 const AuthScreen = ({ onLogin }) => {
   const [userType, setUserType] = useState('coach');
   const [isLoading, setIsLoading] = useState(false);
-  const { addNotification } = useNotification();
-  
-const handleLogin = async (type) => {
-  try {
-    await signInAnonymously(auth);
-    onLogin(type);
-  } catch (error) {
-    console.error('Errore login:', error);
-    alert('Errore durante il login');
-  }
-};
+
+  const handleLogin = async (type) => {
+    setIsLoading(true);
+    try {
+      await signInAnonymously(auth);
+      onLogin(type);
+    } catch (error) {
+      console.error('Errore login:', error);
+      alert('Errore durante il login');
+      setIsLoading(false);
+    }
+  };
   
   return (
     <div style={styles.container}>
@@ -2290,36 +2291,34 @@ const App = () => {
   // ===== LOCALSTORAGE HOOKS =====
   const [events, setEvents] = useState(() => loadFromStorage('presenze_events', initialEvents));
   const [responses, setResponses] = useState(() => loadFromStorage('presenze_responses', initialResponses));
-  
+  const [currentUser, setCurrentUser] = useState(null);
+  const [currentScreen, setCurrentScreen] = useState('auth');
+  const [screenData, setScreenData] = useState({});
+
   // Salvataggio automatico quando cambiano gli stati
   useEffect(() => {
-  if (!currentUser) return;
-  
-  const unsubscribe = onSnapshot(
-    collection(db, 'events'),
-    (snapshot) => {
-      const eventsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setEvents(eventsData);
-    },
-    (error) => {
-      console.error('Errore caricamento eventi:', error);
-    }
-  );
-  
-  return () => unsubscribe();
-}, [currentUser]);
+    if (!currentUser) return;
+
+    const unsubscribe = onSnapshot(
+      collection(db, 'events'),
+      (snapshot) => {
+        const eventsData = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        setEvents(eventsData);
+      },
+      (error) => {
+        console.error('Errore caricamento eventi:', error);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [currentUser]);
 
   useEffect(() => {
     saveToStorage('presenze_responses', responses);
   }, [responses]);
-
-  // ===== REGULAR STATE =====
-  const [currentUser, setCurrentUser] = useState(null);
-  const [currentScreen, setCurrentScreen] = useState('auth');
-  const [screenData, setScreenData] = useState({});
 
   const handleLogin = (userType) => {
     if (userType === 'coach') {
