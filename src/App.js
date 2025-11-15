@@ -1,7 +1,4 @@
 import React, { useState, useContext, createContext, useEffect } from 'react';
-import { auth, db } from './firebase';
-import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
-import { collection, addDoc, getDocs, onSnapshot, Timestamp } from 'firebase/firestore';
 
 // ===== NOTIFICATION SYSTEM =====
 const NotificationContext = createContext();
@@ -770,15 +767,13 @@ const AuthScreen = ({ onLogin }) => {
   const [isLoading, setIsLoading] = useState(false);
   const { addNotification } = useNotification();
   
-const handleLogin = async (type) => {
-  try {
-    await signInAnonymously(auth);
-    onLogin(type);
-  } catch (error) {
-    console.error('Errore login:', error);
-    alert('Errore durante il login');
-  }
-};
+const handleLogin = (type) => {
+    setIsLoading(true);
+    setTimeout(() => {
+      onLogin(type);
+      setIsLoading(false);
+    }, 500);
+  };
   
   return (
     <div style={styles.container}>
@@ -2298,24 +2293,8 @@ const App = () => {
 
   // Salvataggio automatico quando cambiano gli stati
   useEffect(() => {
-  if (!currentUser) return;
-
-  const unsubscribe = onSnapshot(
-    collection(db, 'events'),
-    (snapshot) => {
-      const eventsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setEvents(eventsData);
-    },
-    (error) => {
-      console.error('Errore caricamento eventi:', error);
-    }
-  );
-
-  return () => unsubscribe();
-}, [currentUser]);
+    saveToStorage('presenze_events', events);
+  }, [events]);
 
   useEffect(() => {
     saveToStorage('presenze_responses', responses);
@@ -2341,20 +2320,9 @@ const App = () => {
     }
   };
 
-  const handleCreateEvent = async (eventData) => {
-  try {
-    const eventDate = new Date(eventData.date);
-    await addDoc(collection(db, 'events'), {
-      ...eventData,
-      date: Timestamp.fromDate(eventDate),
-      teamId: 'team1',
-      createdAt: Timestamp.now()
-    });
-  } catch (error) {
-    console.error('Errore creazione evento:', error);
-    alert('Errore nel salvare l\'evento');
-  }
-};
+  const handleCreateEvent = () => {
+    setCurrentScreen('create-event');
+  };
 
   const handleSaveEvent = (newEvent) => {
     console.log('🎯 APP: Ricevuto nuovo evento da salvare:', newEvent);
