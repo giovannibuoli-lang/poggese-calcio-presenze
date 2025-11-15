@@ -766,7 +766,7 @@ const AuthScreen = ({ onLogin }) => {
   const [userType, setUserType] = useState('coach');
   const [isLoading, setIsLoading] = useState(false);
 
-const handleLogin = (type) => {
+  const handleLogin = (type) => {
     setIsLoading(true);
     setTimeout(() => {
       onLogin(type);
