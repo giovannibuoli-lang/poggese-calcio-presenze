@@ -2287,14 +2287,19 @@ const EventDetailScreen = ({ event, team, responses, players, onBack, onDeleteEv
 
 // ===== MAIN APP =====
 const App = () => {
+  // ===== REGULAR STATE =====
+  const [currentUser, setCurrentUser] = useState(null);
+  const [currentScreen, setCurrentScreen] = useState('auth');
+  const [screenData, setScreenData] = useState({});
+
   // ===== LOCALSTORAGE HOOKS =====
   const [events, setEvents] = useState(() => loadFromStorage('presenze_events', initialEvents));
   const [responses, setResponses] = useState(() => loadFromStorage('presenze_responses', initialResponses));
-  
+
   // Salvataggio automatico quando cambiano gli stati
   useEffect(() => {
   if (!currentUser) return;
-  
+
   const unsubscribe = onSnapshot(
     collection(db, 'events'),
     (snapshot) => {
@@ -2308,18 +2313,13 @@ const App = () => {
       console.error('Errore caricamento eventi:', error);
     }
   );
-  
+
   return () => unsubscribe();
 }, [currentUser]);
 
   useEffect(() => {
     saveToStorage('presenze_responses', responses);
   }, [responses]);
-
-  // ===== REGULAR STATE =====
-  const [currentUser, setCurrentUser] = useState(null);
-  const [currentScreen, setCurrentScreen] = useState('auth');
-  const [screenData, setScreenData] = useState({});
 
   const handleLogin = (userType) => {
     if (userType === 'coach') {
