@@ -1404,16 +1404,16 @@ const CoachDashboard = ({ team, events, responses, onCreateEvent, onViewEvent, o
     const now = new Date();
     return eventDate >= now;
   }).slice(0, 3);
-  
+
   const nextEvent = upcomingEvents[0];
-  
+
   const getEventStats = (eventId) => {
     const eventResponses = responses.filter(r => r.eventId === eventId);
     const presente = eventResponses.filter(r => r.status === 'presente').length;
     const assente = eventResponses.filter(r => r.status === 'assente').length;
     const incerto = eventResponses.filter(r => r.status === 'incerto').length;
-    const pending = mockPlayers[team.id].length - eventResponses.length;
-    
+    const pending = 8 - eventResponses.length; // Default to 8 players
+
     return { presente, assente, incerto, pending };
   };
 
@@ -1441,8 +1441,8 @@ const CoachDashboard = ({ team, events, responses, onCreateEvent, onViewEvent, o
           </button>
         </div>
       </div>
-      
-      <div style={styles.content}>
+
+      <div style={{...styles.content, paddingBottom: '90px'}}>
         {nextEvent && (
           <div style={styles.card} className="card-hover">
             <div style={{ display: 'flex', alignItems: 'center', marginBottom: '16px' }}>
@@ -1607,8 +1607,8 @@ const PlayerDashboard = ({ player, events, responses, onViewEvent, onLogout }) =
           </button>
         </div>
       </div>
-      
-      <div style={styles.content}>
+
+      <div style={{...styles.content, paddingBottom: '90px'}}>
         <div style={styles.card} className="card-hover">
           <div style={styles.subtitle}>
             Prossimi Eventi ({upcomingEvents.length})
@@ -2279,6 +2279,910 @@ const EventDetailScreen = ({ event, team, responses, players, onBack, onDeleteEv
   );
 };
 
+// ===== MANAGE TEAMS SCREEN =====
+const ManageTeamsScreen = ({ teams, onSaveTeam, onDeleteTeam, onBack }) => {
+  const { addNotification } = useNotification();
+  const [editingTeam, setEditingTeam] = useState(null);
+  const [showForm, setShowForm] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    category: '',
+    coachName: ''
+  });
+  const [errors, setErrors] = useState({});
+
+  const resetForm = () => {
+    setFormData({ name: '', category: '', coachName: '' });
+    setErrors({});
+    setEditingTeam(null);
+    setShowForm(false);
+  };
+
+  const handleEdit = (team) => {
+    setEditingTeam(team);
+    setFormData({
+      name: team.name,
+      category: team.category,
+      coachName: team.coach.name
+    });
+    setShowForm(true);
+  };
+
+  const handleSave = () => {
+    const newErrors = {};
+    if (!formData.name.trim()) newErrors.name = 'Nome obbligatorio';
+    if (!formData.category.trim()) newErrors.category = 'Categoria obbligatoria';
+    if (!formData.coachName.trim()) newErrors.coachName = 'Nome allenatore obbligatorio';
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+
+    const teamData = {
+      id: editingTeam?.id || 'team_' + Date.now(),
+      name: formData.name,
+      category: formData.category,
+      coach: {
+        id: editingTeam?.coach.id || 'coach_' + Date.now(),
+        name: formData.coachName
+      }
+    };
+
+    onSaveTeam(teamData);
+    addNotification(editingTeam ? 'Squadra aggiornata!' : 'Squadra creata!', 'success');
+    resetForm();
+  };
+
+  return (
+    <div style={styles.container}>
+      <StyleInjector />
+      <div style={styles.header}>
+        <div style={styles.headerBackground} />
+        <div style={styles.headerContent}>
+          <div style={styles.headerTitle}>Gestione Squadre</div>
+          <button onClick={onBack} style={{
+            background: 'rgba(255,255,255,0.2)',
+            border: 'none',
+            color: colors.secondary,
+            fontSize: '18px',
+            cursor: 'pointer',
+            padding: '12px',
+            borderRadius: '8px'
+          }}>
+            ← Indietro
+          </button>
+        </div>
+      </div>
+
+      <div style={styles.content}>
+        {!showForm && (
+          <>
+            <Button
+              title="+ NUOVA SQUADRA"
+              onPress={() => setShowForm(true)}
+              variant="success"
+              style={{ marginBottom: '24px' }}
+            />
+
+            {Object.values(teams).map(team => (
+              <div key={team.id} style={{...styles.card, marginBottom: '16px'}} className="card-hover">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{...styles.subtitle, marginBottom: '8px'}}>{team.name}</div>
+                    <div style={styles.text}>Categoria: {team.category}</div>
+                    <div style={styles.smallText}>Allenatore: {team.coach.name}</div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      onClick={() => handleEdit(team)}
+                      style={{
+                        ...styles.button,
+                        ...styles.warningButton,
+                        padding: '12px 20px',
+                        marginBottom: 0
+                      }}
+                      className="button-hover"
+                    >
+                      <span style={styles.buttonText}>✏️ Modifica</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (window.confirm(`Eliminare "${team.name}"?`)) {
+                          onDeleteTeam(team.id);
+                          addNotification('Squadra eliminata', 'success');
+                        }
+                      }}
+                      style={{
+                        ...styles.button,
+                        ...styles.dangerButton,
+                        padding: '12px 20px',
+                        marginBottom: 0
+                      }}
+                      className="button-hover"
+                    >
+                      <span style={styles.buttonText}>🗑️</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </>
+        )}
+
+        {showForm && (
+          <div style={styles.card}>
+            <div style={{...styles.subtitle, marginBottom: '24px'}}>
+              {editingTeam ? 'Modifica Squadra' : 'Nuova Squadra'}
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <div style={styles.text}>Nome Squadra:</div>
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData({...formData, name: e.target.value})}
+                placeholder="es: Juventus U19"
+                className="input-focus"
+                style={{
+                  ...styles.input,
+                  borderColor: errors.name ? colors.danger : colors.lightGray
+                }}
+              />
+              {errors.name && <div style={{color: colors.danger, fontSize: '14px'}}>{errors.name}</div>}
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <div style={styles.text}>Categoria:</div>
+              <input
+                type="text"
+                value={formData.category}
+                onChange={(e) => setFormData({...formData, category: e.target.value})}
+                placeholder="es: Juniores, Allievi, Esordienti"
+                className="input-focus"
+                style={{
+                  ...styles.input,
+                  borderColor: errors.category ? colors.danger : colors.lightGray
+                }}
+              />
+              {errors.category && <div style={{color: colors.danger, fontSize: '14px'}}>{errors.category}</div>}
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <div style={styles.text}>Nome Allenatore:</div>
+              <input
+                type="text"
+                value={formData.coachName}
+                onChange={(e) => setFormData({...formData, coachName: e.target.value})}
+                placeholder="es: Mister Giuseppe"
+                className="input-focus"
+                style={{
+                  ...styles.input,
+                  borderColor: errors.coachName ? colors.danger : colors.lightGray
+                }}
+              />
+              {errors.coachName && <div style={{color: colors.danger, fontSize: '14px'}}>{errors.coachName}</div>}
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <Button
+                title="SALVA"
+                onPress={handleSave}
+                variant="success"
+                style={{ flex: 1 }}
+              />
+              <Button
+                title="Annulla"
+                onPress={resetForm}
+                variant="secondary"
+                style={{ flex: 1 }}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ===== MANAGE PLAYERS SCREEN =====
+const ManagePlayersScreen = ({ team, players, onSavePlayer, onDeletePlayer, onBack }) => {
+  const { addNotification } = useNotification();
+  const [editingPlayer, setEditingPlayer] = useState(null);
+  const [showForm, setShowForm] = useState(false);
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    phone: '',
+    position: 'centrocampista',
+    jerseyNumber: '',
+    isActive: true
+  });
+  const [errors, setErrors] = useState({});
+
+  const teamPlayers = players[team.id] || [];
+
+  const resetForm = () => {
+    setFormData({
+      firstName: '',
+      lastName: '',
+      phone: '',
+      position: 'centrocampista',
+      jerseyNumber: '',
+      isActive: true
+    });
+    setErrors({});
+    setEditingPlayer(null);
+    setShowForm(false);
+  };
+
+  const handleEdit = (player) => {
+    setEditingPlayer(player);
+    setFormData({
+      firstName: player.firstName,
+      lastName: player.lastName,
+      phone: player.phone,
+      position: player.position,
+      jerseyNumber: player.jerseyNumber.toString(),
+      isActive: player.isActive
+    });
+    setShowForm(true);
+  };
+
+  const handleSave = () => {
+    const newErrors = {};
+    if (!formData.firstName.trim()) newErrors.firstName = 'Nome obbligatorio';
+    if (!formData.lastName.trim()) newErrors.lastName = 'Cognome obbligatorio';
+    if (!formData.jerseyNumber) newErrors.jerseyNumber = 'Numero maglia obbligatorio';
+    else if (isNaN(formData.jerseyNumber) || formData.jerseyNumber < 1 || formData.jerseyNumber > 99) {
+      newErrors.jerseyNumber = 'Numero deve essere tra 1 e 99';
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+
+    const playerData = {
+      id: editingPlayer?.id || 'p_' + Date.now(),
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      phone: formData.phone,
+      position: formData.position,
+      jerseyNumber: parseInt(formData.jerseyNumber),
+      isActive: formData.isActive
+    };
+
+    onSavePlayer(team.id, playerData);
+    addNotification(editingPlayer ? 'Giocatore aggiornato!' : 'Giocatore aggiunto!', 'success');
+    resetForm();
+  };
+
+  return (
+    <div style={styles.container}>
+      <StyleInjector />
+      <div style={styles.header}>
+        <div style={styles.headerBackground} />
+        <div style={styles.headerContent}>
+          <div>
+            <div style={styles.headerTitle}>Gestione Giocatori</div>
+            <div style={styles.headerSubtitle}>{team.name}</div>
+          </div>
+          <button onClick={onBack} style={{
+            background: 'rgba(255,255,255,0.2)',
+            border: 'none',
+            color: colors.secondary,
+            fontSize: '18px',
+            cursor: 'pointer',
+            padding: '12px',
+            borderRadius: '8px'
+          }}>
+            ← Indietro
+          </button>
+        </div>
+      </div>
+
+      <div style={styles.content}>
+        {!showForm && (
+          <>
+            <div style={styles.card}>
+              <div style={{...styles.subtitle, marginBottom: '8px'}}>
+                Rosa Squadra ({teamPlayers.length})
+              </div>
+              <Button
+                title="+ AGGIUNGI GIOCATORE"
+                onPress={() => setShowForm(true)}
+                variant="success"
+              />
+            </div>
+
+            {teamPlayers.map(player => (
+              <div key={player.id} style={{...styles.playerCard}} className="card-hover">
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: '18px', fontWeight: '600', color: colors.text, marginBottom: '4px' }}>
+                    <span style={{
+                      display: 'inline-block',
+                      backgroundColor: colors.primary,
+                      color: colors.secondary,
+                      padding: '2px 8px',
+                      borderRadius: '12px',
+                      fontSize: '12px',
+                      marginRight: '8px',
+                      minWidth: '24px',
+                      textAlign: 'center'
+                    }}>
+                      {player.jerseyNumber}
+                    </span>
+                    {player.firstName} {player.lastName}
+                  </div>
+                  <div style={{ fontSize: '14px', color: colors.textSecondary, textTransform: 'capitalize' }}>
+                    {player.position} • {player.phone || 'Nessun telefono'}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    onClick={() => handleEdit(player)}
+                    style={{
+                      ...styles.button,
+                      ...styles.warningButton,
+                      padding: '8px 16px',
+                      marginBottom: 0
+                    }}
+                    className="button-hover"
+                  >
+                    <span style={styles.buttonText}>✏️</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (window.confirm(`Rimuovere ${player.firstName} ${player.lastName}?`)) {
+                        onDeletePlayer(team.id, player.id);
+                        addNotification('Giocatore rimosso', 'success');
+                      }
+                    }}
+                    style={{
+                      ...styles.button,
+                      ...styles.dangerButton,
+                      padding: '8px 16px',
+                      marginBottom: 0
+                    }}
+                    className="button-hover"
+                  >
+                    <span style={styles.buttonText}>🗑️</span>
+                  </button>
+                </div>
+              </div>
+            ))}
+          </>
+        )}
+
+        {showForm && (
+          <div style={styles.card}>
+            <div style={{...styles.subtitle, marginBottom: '24px'}}>
+              {editingPlayer ? 'Modifica Giocatore' : 'Nuovo Giocatore'}
+            </div>
+
+            <div style={styles.row}>
+              <div style={{ flex: 1, marginRight: '8px' }}>
+                <div style={styles.text}>Nome:</div>
+                <input
+                  type="text"
+                  value={formData.firstName}
+                  onChange={(e) => setFormData({...formData, firstName: e.target.value})}
+                  placeholder="es: Marco"
+                  className="input-focus"
+                  style={{
+                    ...styles.input,
+                    borderColor: errors.firstName ? colors.danger : colors.lightGray
+                  }}
+                />
+                {errors.firstName && <div style={{color: colors.danger, fontSize: '14px'}}>{errors.firstName}</div>}
+              </div>
+              <div style={{ flex: 1, marginLeft: '8px' }}>
+                <div style={styles.text}>Cognome:</div>
+                <input
+                  type="text"
+                  value={formData.lastName}
+                  onChange={(e) => setFormData({...formData, lastName: e.target.value})}
+                  placeholder="es: Rossi"
+                  className="input-focus"
+                  style={{
+                    ...styles.input,
+                    borderColor: errors.lastName ? colors.danger : colors.lightGray
+                  }}
+                />
+                {errors.lastName && <div style={{color: colors.danger, fontSize: '14px'}}>{errors.lastName}</div>}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <div style={styles.text}>Telefono:</div>
+              <input
+                type="tel"
+                value={formData.phone}
+                onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                placeholder="es: +39 333 1234567"
+                className="input-focus"
+                style={styles.input}
+              />
+            </div>
+
+            <div style={styles.row}>
+              <div style={{ flex: 1, marginRight: '8px' }}>
+                <div style={styles.text}>Ruolo:</div>
+                <select
+                  value={formData.position}
+                  onChange={(e) => setFormData({...formData, position: e.target.value})}
+                  style={{...styles.input, cursor: 'pointer'}}
+                >
+                  <option value="portiere">Portiere</option>
+                  <option value="difensore">Difensore</option>
+                  <option value="centrocampista">Centrocampista</option>
+                  <option value="attaccante">Attaccante</option>
+                </select>
+              </div>
+              <div style={{ flex: 1, marginLeft: '8px' }}>
+                <div style={styles.text}>N° Maglia:</div>
+                <input
+                  type="number"
+                  value={formData.jerseyNumber}
+                  onChange={(e) => setFormData({...formData, jerseyNumber: e.target.value})}
+                  placeholder="1-99"
+                  min="1"
+                  max="99"
+                  className="input-focus"
+                  style={{
+                    ...styles.input,
+                    borderColor: errors.jerseyNumber ? colors.danger : colors.lightGray
+                  }}
+                />
+                {errors.jerseyNumber && <div style={{color: colors.danger, fontSize: '14px'}}>{errors.jerseyNumber}</div>}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
+              <Button
+                title="SALVA"
+                onPress={handleSave}
+                variant="success"
+                style={{ flex: 1 }}
+              />
+              <Button
+                title="Annulla"
+                onPress={resetForm}
+                variant="secondary"
+                style={{ flex: 1 }}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ===== CALENDAR SCREEN =====
+const CalendarScreen = ({ events, team, onViewEvent, onBack }) => {
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+
+  const getDaysInMonth = (date) => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startingDayOfWeek = firstDay.getDay();
+
+    return { daysInMonth, startingDayOfWeek, firstDay, lastDay };
+  };
+
+  const { daysInMonth, startingDayOfWeek } = getDaysInMonth(currentMonth);
+
+  const getEventsForDay = (day) => {
+    return events.filter(event => {
+      const eventDate = new Date(event.date);
+      return eventDate.getDate() === day &&
+             eventDate.getMonth() === currentMonth.getMonth() &&
+             eventDate.getFullYear() === currentMonth.getFullYear();
+    });
+  };
+
+  const previousMonth = () => {
+    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
+  };
+
+  const nextMonth = () => {
+    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
+  };
+
+  const monthName = currentMonth.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
+
+  return (
+    <div style={styles.container}>
+      <StyleInjector />
+      <div style={styles.header}>
+        <div style={styles.headerBackground} />
+        <div style={styles.headerContent}>
+          <div style={styles.headerTitle}>Calendario Eventi</div>
+          <button onClick={onBack} style={{
+            background: 'rgba(255,255,255,0.2)',
+            border: 'none',
+            color: colors.secondary,
+            fontSize: '18px',
+            cursor: 'pointer',
+            padding: '12px',
+            borderRadius: '8px'
+          }}>
+            ← Indietro
+          </button>
+        </div>
+      </div>
+
+      <div style={{...styles.content, paddingBottom: '90px'}}>
+        <div style={styles.card}>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '20px'
+          }}>
+            <button
+              onClick={previousMonth}
+              style={{
+                ...styles.button,
+                ...styles.secondaryButton,
+                padding: '12px 20px',
+                marginBottom: 0,
+                minWidth: 'auto'
+              }}
+              className="button-hover"
+            >
+              <span style={styles.secondaryButtonText}>←</span>
+            </button>
+            <div style={{...styles.subtitle, marginBottom: 0, textTransform: 'capitalize'}}>
+              {monthName}
+            </div>
+            <button
+              onClick={nextMonth}
+              style={{
+                ...styles.button,
+                ...styles.secondaryButton,
+                padding: '12px 20px',
+                marginBottom: 0,
+                minWidth: 'auto'
+              }}
+              className="button-hover"
+            >
+              <span style={styles.secondaryButtonText}>→</span>
+            </button>
+          </div>
+
+          {/* Days of week header */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(7, 1fr)',
+            gap: '4px',
+            marginBottom: '8px'
+          }}>
+            {['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'].map(day => (
+              <div key={day} style={{
+                textAlign: 'center',
+                fontWeight: '600',
+                fontSize: '12px',
+                color: colors.textSecondary,
+                padding: '8px'
+              }}>
+                {day}
+              </div>
+            ))}
+          </div>
+
+          {/* Calendar grid */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(7, 1fr)',
+            gap: '4px'
+          }}>
+            {/* Empty cells for days before month starts */}
+            {Array.from({ length: startingDayOfWeek }).map((_, i) => (
+              <div key={`empty-${i}`} style={{ padding: '8px' }} />
+            ))}
+
+            {/* Days of month */}
+            {Array.from({ length: daysInMonth }).map((_, i) => {
+              const day = i + 1;
+              const dayEvents = getEventsForDay(day);
+              const isToday = new Date().getDate() === day &&
+                            new Date().getMonth() === currentMonth.getMonth() &&
+                            new Date().getFullYear() === currentMonth.getFullYear();
+
+              return (
+                <div
+                  key={day}
+                  style={{
+                    padding: '8px',
+                    minHeight: '60px',
+                    backgroundColor: isToday ? `${colors.primary}15` :
+                                   dayEvents.length > 0 ? colors.lightBlue : colors.background,
+                    borderRadius: '8px',
+                    border: isToday ? `2px solid ${colors.primary}` : '1px solid ' + colors.lightGray,
+                    cursor: dayEvents.length > 0 ? 'pointer' : 'default',
+                    transition: 'all 0.2s ease'
+                  }}
+                  className={dayEvents.length > 0 ? 'card-hover' : ''}
+                  onClick={() => dayEvents.length > 0 && onViewEvent(dayEvents[0].id)}
+                >
+                  <div style={{
+                    fontWeight: isToday ? '700' : '500',
+                    fontSize: '14px',
+                    color: isToday ? colors.primary : colors.text,
+                    marginBottom: '4px'
+                  }}>
+                    {day}
+                  </div>
+                  {dayEvents.slice(0, 2).map(event => (
+                    <div key={event.id} style={{
+                      fontSize: '10px',
+                      padding: '2px 4px',
+                      backgroundColor: event.type === 'partita' ? colors.success : colors.primary,
+                      color: colors.secondary,
+                      borderRadius: '4px',
+                      marginBottom: '2px',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap'
+                    }}>
+                      {event.startTime} {event.type === 'partita' ? '⚽' : '🏃'}
+                    </div>
+                  ))}
+                  {dayEvents.length > 2 && (
+                    <div style={{ fontSize: '10px', color: colors.primary, fontWeight: '600' }}>
+                      +{dayEvents.length - 2}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Upcoming events list */}
+        <div style={styles.card}>
+          <div style={{...styles.subtitle, marginBottom: '16px'}}>
+            Prossimi Eventi ({events.filter(e => new Date(e.date) >= new Date()).length})
+          </div>
+          {events
+            .filter(e => new Date(e.date) >= new Date())
+            .slice(0, 5)
+            .map(event => (
+              <div
+                key={event.id}
+                style={{...styles.card, marginBottom: '12px', cursor: 'pointer', padding: '16px'}}
+                onClick={() => onViewEvent(event.id)}
+                className="card-hover"
+              >
+                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                  <div style={{flex: 1}}>
+                    <div style={{fontSize: '16px', fontWeight: '600', marginBottom: '4px'}}>
+                      {event.type === 'partita' ? '⚽' : '🏃'} {event.title}
+                    </div>
+                    <div style={{fontSize: '14px', color: colors.textSecondary}}>
+                      {new Date(event.date).toLocaleDateString('it-IT', {
+                        weekday: 'short',
+                        day: 'numeric',
+                        month: 'short'
+                      })} • {event.startTime} • {event.location.name}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ===== STATS SCREEN =====
+const StatsScreen = ({ events, responses, players, team, onBack }) => {
+  const teamPlayers = players[team?.id] || [];
+
+  const getPlayerStats = (playerId) => {
+    const playerResponses = responses.filter(r => r.playerId === playerId);
+    const presente = playerResponses.filter(r => r.status === 'presente').length;
+    const assente = playerResponses.filter(r => r.status === 'assente').length;
+    const totalEvents = events.filter(e => new Date(e.date) <= new Date()).length;
+    const percentage = totalEvents > 0 ? Math.round((presente / totalEvents) * 100) : 0;
+
+    return { presente, assente, totalEvents, percentage };
+  };
+
+  const sortedPlayers = teamPlayers
+    .map(player => ({
+      ...player,
+      stats: getPlayerStats(player.id)
+    }))
+    .sort((a, b) => b.stats.percentage - a.stats.percentage);
+
+  const totalEventsCount = events.length;
+  const pastEventsCount = events.filter(e => new Date(e.date) < new Date()).length;
+  const futureEventsCount = events.filter(e => new Date(e.date) >= new Date()).length;
+
+  return (
+    <div style={styles.container}>
+      <StyleInjector />
+      <div style={styles.header}>
+        <div style={styles.headerBackground} />
+        <div style={styles.headerContent}>
+          <div>
+            <div style={styles.headerTitle}>Statistiche</div>
+            <div style={styles.headerSubtitle}>{team?.name}</div>
+          </div>
+          <button onClick={onBack} style={{
+            background: 'rgba(255,255,255,0.2)',
+            border: 'none',
+            color: colors.secondary,
+            fontSize: '18px',
+            cursor: 'pointer',
+            padding: '12px',
+            borderRadius: '8px'
+          }}>
+            ← Indietro
+          </button>
+        </div>
+      </div>
+
+      <div style={{...styles.content, paddingBottom: '90px'}}>
+        {/* Overview Stats */}
+        <div style={styles.card}>
+          <div style={{...styles.subtitle, marginBottom: '16px'}}>Panoramica</div>
+          <div style={styles.statsGrid}>
+            <div style={{...styles.statItem, borderColor: colors.primary}}>
+              <div style={{ fontSize: '32px', fontWeight: '700', color: colors.primary }}>
+                {totalEventsCount}
+              </div>
+              <div style={styles.smallText}>Eventi Totali</div>
+            </div>
+            <div style={{...styles.statItem, borderColor: colors.success}}>
+              <div style={{ fontSize: '32px', fontWeight: '700', color: colors.success }}>
+                {pastEventsCount}
+              </div>
+              <div style={styles.smallText}>Completati</div>
+            </div>
+            <div style={{...styles.statItem, borderColor: colors.warning}}>
+              <div style={{ fontSize: '32px', fontWeight: '700', color: colors.warning }}>
+                {futureEventsCount}
+              </div>
+              <div style={styles.smallText}>Programmati</div>
+            </div>
+            <div style={{...styles.statItem, borderColor: colors.accent}}>
+              <div style={{ fontSize: '32px', fontWeight: '700', color: colors.accent }}>
+                {teamPlayers.length}
+              </div>
+              <div style={styles.smallText}>Giocatori</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Player Rankings */}
+        <div style={styles.card}>
+          <div style={{...styles.subtitle, marginBottom: '16px'}}>
+            Classifica Presenze
+          </div>
+          {sortedPlayers.map((player, index) => (
+            <div key={player.id} style={{
+              ...styles.playerCard,
+              backgroundColor: index < 3 ? `${colors.success}05` : colors.backgroundCard
+            }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                flex: 1
+              }}>
+                <div style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '50%',
+                  backgroundColor: index === 0 ? '#FFD700' :
+                                 index === 1 ? '#C0C0C0' :
+                                 index === 2 ? '#CD7F32' : colors.lightGray,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: '700',
+                  color: index < 3 ? colors.secondary : colors.text,
+                  fontSize: '14px'
+                }}>
+                  {index + 1}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: '16px', fontWeight: '600', marginBottom: '2px' }}>
+                    {player.firstName} {player.lastName}
+                  </div>
+                  <div style={{ fontSize: '12px', color: colors.textSecondary }}>
+                    {player.stats.presente} presenze su {player.stats.totalEvents} eventi
+                  </div>
+                </div>
+                <div style={{
+                  fontSize: '24px',
+                  fontWeight: '700',
+                  color: player.stats.percentage >= 80 ? colors.success :
+                        player.stats.percentage >= 60 ? colors.warning : colors.danger
+                }}>
+                  {player.stats.percentage}%
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ===== BOTTOM NAVIGATION =====
+const BottomNav = ({ currentScreen, onNavigate, userType }) => {
+  const navItems = userType === 'coach' ? [
+    { id: 'coach-dashboard', icon: '🏠', label: 'Home' },
+    { id: 'manage-teams', icon: '⚽', label: 'Squadre' },
+    { id: 'manage-players', icon: '👥', label: 'Giocatori' },
+    { id: 'calendar', icon: '📅', label: 'Calendario' },
+    { id: 'stats', icon: '📊', label: 'Stats' }
+  ] : [
+    { id: 'player-dashboard', icon: '🏠', label: 'Home' },
+    { id: 'calendar', icon: '📅', label: 'Eventi' },
+    { id: 'stats', icon: '📊', label: 'Stats' }
+  ];
+
+  return (
+    <div style={{
+      position: 'fixed',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      height: '70px',
+      backgroundColor: colors.backgroundCard,
+      borderTop: `1px solid ${colors.lightGray}`,
+      display: 'flex',
+      justifyContent: 'space-around',
+      alignItems: 'center',
+      boxShadow: '0 -2px 10px rgba(0,0,0,0.1)',
+      zIndex: 100
+    }}>
+      {navItems.map(item => (
+        <button
+          key={item.id}
+          onClick={() => onNavigate(item.id)}
+          style={{
+            flex: 1,
+            height: '100%',
+            border: 'none',
+            background: currentScreen === item.id ? `${colors.primary}10` : 'transparent',
+            cursor: 'pointer',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '4px',
+            transition: 'all 0.2s ease',
+            borderTop: currentScreen === item.id ? `3px solid ${colors.primary}` : '3px solid transparent'
+          }}
+          className="button-hover"
+        >
+          <div style={{ fontSize: '24px' }}>{item.icon}</div>
+          <div style={{
+            fontSize: '11px',
+            fontWeight: currentScreen === item.id ? '600' : '400',
+            color: currentScreen === item.id ? colors.primary : colors.textSecondary
+          }}>
+            {item.label}
+          </div>
+        </button>
+      ))}
+    </div>
+  );
+};
+
 // ===== MAIN APP =====
 const App = () => {
   // ===== REGULAR STATE =====
@@ -2289,6 +3193,8 @@ const App = () => {
   // ===== LOCALSTORAGE HOOKS =====
   const [events, setEvents] = useState(() => loadFromStorage('presenze_events', initialEvents));
   const [responses, setResponses] = useState(() => loadFromStorage('presenze_responses', initialResponses));
+  const [teams, setTeams] = useState(() => loadFromStorage('presenze_teams', mockTeams));
+  const [players, setPlayers] = useState(() => loadFromStorage('presenze_players', mockPlayers));
 
   // Salvataggio automatico quando cambiano gli stati
   useEffect(() => {
@@ -2299,22 +3205,35 @@ const App = () => {
     saveToStorage('presenze_responses', responses);
   }, [responses]);
 
+  useEffect(() => {
+    saveToStorage('presenze_teams', teams);
+  }, [teams]);
+
+  useEffect(() => {
+    saveToStorage('presenze_players', players);
+  }, [players]);
+
   const handleLogin = (userType) => {
     if (userType === 'coach') {
+      const firstTeamId = Object.keys(teams)[0];
+      const firstTeam = teams[firstTeamId];
       setCurrentUser({
-        id: 'coach1',
+        id: firstTeam?.coach.id || 'coach1',
         type: 'coach',
-        name: 'Mister Giuseppe',
-        teamId: 'team1'
+        name: firstTeam?.coach.name || 'Mister Giuseppe',
+        teamId: firstTeamId
       });
       setCurrentScreen('coach-dashboard');
     } else {
-      setCurrentUser({
-        id: 'p1',
-        type: 'player',
-        ...mockPlayers['team1'][0],
-        teamId: 'team1'
-      });
+      const firstTeamId = Object.keys(teams)[0];
+      const firstPlayer = players[firstTeamId]?.[0];
+      if (firstPlayer) {
+        setCurrentUser({
+          ...firstPlayer,
+          type: 'player',
+          teamId: firstTeamId
+        });
+      }
       setCurrentScreen('player-dashboard');
     }
   };
@@ -2388,41 +3307,105 @@ const App = () => {
     setScreenData({});
   };
 
-  const currentTeam = currentUser ? mockTeams[currentUser.teamId] : null;
+  // ===== TEAM MANAGEMENT =====
+  const handleSaveTeam = (teamData) => {
+    setTeams(prev => ({
+      ...prev,
+      [teamData.id]: teamData
+    }));
+  };
+
+  const handleDeleteTeam = (teamId) => {
+    setTeams(prev => {
+      const newTeams = { ...prev };
+      delete newTeams[teamId];
+      return newTeams;
+    });
+    // Elimina anche tutti i giocatori di questa squadra
+    setPlayers(prev => {
+      const newPlayers = { ...prev };
+      delete newPlayers[teamId];
+      return newPlayers;
+    });
+    // Elimina tutti gli eventi di questa squadra
+    setEvents(prev => prev.filter(e => e.teamId !== teamId));
+  };
+
+  // ===== PLAYER MANAGEMENT =====
+  const handleSavePlayer = (teamId, playerData) => {
+    setPlayers(prev => {
+      const teamPlayers = prev[teamId] || [];
+      const existingIndex = teamPlayers.findIndex(p => p.id === playerData.id);
+
+      if (existingIndex >= 0) {
+        // Update existing player
+        const updated = [...teamPlayers];
+        updated[existingIndex] = playerData;
+        return { ...prev, [teamId]: updated };
+      } else {
+        // Add new player
+        return { ...prev, [teamId]: [...teamPlayers, playerData] };
+      }
+    });
+  };
+
+  const handleDeletePlayer = (teamId, playerId) => {
+    setPlayers(prev => ({
+      ...prev,
+      [teamId]: (prev[teamId] || []).filter(p => p.id !== playerId)
+    }));
+    // Elimina anche tutte le risposte di questo giocatore
+    setResponses(prev => prev.filter(r => r.playerId !== playerId));
+  };
+
+  // ===== NAVIGATION =====
+  const handleNavigate = (screen) => {
+    setCurrentScreen(screen);
+    setScreenData({});
+  };
+
+  const currentTeam = currentUser ? teams[currentUser.teamId] : null;
   const currentEvent = screenData.eventId ? events.find(e => e.id === screenData.eventId) : null;
-  const currentPlayer = currentUser?.type === 'player' ? currentUser : mockPlayers['team1'][0];
-  const currentResponse = currentEvent && currentPlayer ? 
+  const currentPlayer = currentUser?.type === 'player' ? currentUser : (players['team1'] && players['team1'][0]);
+  const currentResponse = currentEvent && currentPlayer ?
     responses.find(r => r.eventId === currentEvent.id && r.playerId === currentPlayer.id) : null;
 
   return (
     <NotificationProvider>
-      <AppContext.Provider value={{ 
-        currentUser, 
-        events, 
-        responses, 
-        teams: mockTeams, 
-        players: mockPlayers 
+      <AppContext.Provider value={{
+        currentUser,
+        events,
+        responses,
+        teams,
+        players
       }}>
         <div style={{ fontFamily: "'Inter', 'Segoe UI', sans-serif", minHeight: '100vh', backgroundColor: colors.background }}>
           <StyleInjector />
-          
+
           {currentScreen === 'auth' && (
             <AuthScreen onLogin={handleLogin} />
           )}
-          
+
           {currentScreen === 'coach-dashboard' && currentTeam && (
-            <CoachDashboard 
-              team={currentTeam}
-              events={events.filter(e => e.teamId === currentTeam.id)}
-              responses={responses}
-              onCreateEvent={handleCreateEvent}
-              onViewEvent={handleViewEvent}
-              onLogout={handleLogout}
-            />
+            <>
+              <CoachDashboard
+                team={currentTeam}
+                events={events.filter(e => e.teamId === currentTeam.id)}
+                responses={responses}
+                onCreateEvent={handleCreateEvent}
+                onViewEvent={handleViewEvent}
+                onLogout={handleLogout}
+              />
+              <BottomNav
+                currentScreen={currentScreen}
+                onNavigate={handleNavigate}
+                userType={currentUser.type}
+              />
+            </>
           )}
-          
+
           {currentScreen === 'create-event' && currentTeam && (
-            <CreateEventScreen 
+            <CreateEventScreen
               team={currentTeam}
               onSave={handleSaveEvent}
               onCancel={handleBack}
@@ -2430,11 +3413,11 @@ const App = () => {
           )}
 
           {currentScreen === 'event-detail' && currentEvent && currentTeam && (
-            <EventDetailScreen 
+            <EventDetailScreen
               event={currentEvent}
               team={currentTeam}
               responses={responses}
-              players={mockPlayers}
+              players={players}
               onBack={handleBack}
               onDeleteEvent={(eventId) => {
                 setEvents(prev => prev.filter(event => event.id !== eventId));
@@ -2442,19 +3425,92 @@ const App = () => {
               }}
             />
           )}
-          
-          {currentScreen === 'player-dashboard' && currentUser && currentTeam && (
-            <PlayerDashboard 
-              player={currentUser}
-              events={events.filter(e => e.teamId === currentTeam.id)}
-              responses={responses}
-              onViewEvent={handleViewEvent}
-              onLogout={handleLogout}
-            />
+
+          {currentScreen === 'manage-teams' && (
+            <>
+              <ManageTeamsScreen
+                teams={teams}
+                onSaveTeam={handleSaveTeam}
+                onDeleteTeam={handleDeleteTeam}
+                onBack={handleBack}
+              />
+              <BottomNav
+                currentScreen={currentScreen}
+                onNavigate={handleNavigate}
+                userType={currentUser.type}
+              />
+            </>
           )}
-          
+
+          {currentScreen === 'manage-players' && currentTeam && (
+            <>
+              <ManagePlayersScreen
+                team={currentTeam}
+                players={players}
+                onSavePlayer={handleSavePlayer}
+                onDeletePlayer={handleDeletePlayer}
+                onBack={handleBack}
+              />
+              <BottomNav
+                currentScreen={currentScreen}
+                onNavigate={handleNavigate}
+                userType={currentUser.type}
+              />
+            </>
+          )}
+
+          {currentScreen === 'calendar' && currentTeam && (
+            <>
+              <CalendarScreen
+                events={events.filter(e => e.teamId === currentTeam.id)}
+                team={currentTeam}
+                onViewEvent={handleViewEvent}
+                onBack={handleBack}
+              />
+              <BottomNav
+                currentScreen={currentScreen}
+                onNavigate={handleNavigate}
+                userType={currentUser.type}
+              />
+            </>
+          )}
+
+          {currentScreen === 'stats' && currentTeam && (
+            <>
+              <StatsScreen
+                events={events.filter(e => e.teamId === currentTeam.id)}
+                responses={responses}
+                players={players}
+                team={currentTeam}
+                onBack={handleBack}
+              />
+              <BottomNav
+                currentScreen={currentScreen}
+                onNavigate={handleNavigate}
+                userType={currentUser.type}
+              />
+            </>
+          )}
+
+          {currentScreen === 'player-dashboard' && currentUser && currentTeam && (
+            <>
+              <PlayerDashboard
+                player={currentUser}
+                events={events.filter(e => e.teamId === currentTeam.id)}
+                responses={responses}
+                onViewEvent={handleViewEvent}
+                onLogout={handleLogout}
+              />
+              <BottomNav
+                currentScreen={currentScreen}
+                onNavigate={handleNavigate}
+                userType={currentUser.type}
+              />
+            </>
+          )}
+
           {currentScreen === 'player-response' && currentEvent && currentTeam && currentPlayer && (
-            <PlayerResponseScreen 
+            <PlayerResponseScreen
               event={currentEvent}
               team={currentTeam}
               player={currentPlayer}
