@@ -1976,7 +1976,7 @@ const CalendarView = ({ onNavigate, onBack }) => {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Button title="← Mese Precedente" onPress={previousMonth} variant="outline" className="calendar-nav-button" />
             {{<Button title="Mese Successivo →" onPress={nextMonth} variant="outline" className="calendar-nav-button" />
-            <Button title="Mese Successivo →" onPress={nextMonth} variant="outline" />
+            
           </div>
         </div>
 
