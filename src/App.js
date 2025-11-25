@@ -1776,7 +1776,7 @@ const EventDetail = ({ onNavigate, onBack, eventId }) => {
                         }}>
                           💬 <strong>Nota:</strong> {response.note}
                         </div>
-                      )}
+                      )
                       
                       {response && (
                         <div style={{ marginTop: '8px', fontSize: '12px', color: colors.gray }}>
