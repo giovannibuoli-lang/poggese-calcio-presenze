@@ -1,5 +1,54 @@
 import React, { useState, useContext, createContext, useMemo, useCallback, useEffect } from 'react';
 
+// ===== API CLIENT =====
+const API_URL = '/api/db';
+
+const apiCall = async (method, body = null, query = '') => {
+  const options = {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+  };
+  
+  if (body) options.body = JSON.stringify(body);
+
+  const response = await fetch(`${API_URL}${query}`, options);
+  if (!response.ok) throw new Error(`API Error: ${response.statusText}`);
+  return response.json();
+};
+
+const api = {
+  loadAll: async () => {
+    const [teamsRes, playersRes, eventsRes] = await Promise.all([
+      apiCall('GET', null, '?table=teams'),
+      apiCall('GET', null, '?table=players'),
+      apiCall('GET', null, '?table=events'),
+    ]);
+    
+    const teams = {};
+    teamsRes.teams.forEach(t => teams[t.id] = t);
+    
+    const players = {};
+    playersRes.players.forEach(p => {
+      if (!players[p.team_id]) players[p.team_id] = [];
+      players[p.team_id].push(p);
+    });
+    
+    return { teams, players, events: eventsRes.events };
+  },
+
+  addTeam: (team) => apiCall('POST', { action: 'add_team', data: team }),
+  updateTeam: (id, updates) => apiCall('POST', { action: 'update_team', id, data: updates }),
+  deleteTeam: (id) => apiCall('POST', { action: 'delete_team', id }),
+
+  addPlayer: (teamId, player) => apiCall('POST', { action: 'add_player', data: { ...player, teamId } }),
+  updatePlayer: (id, updates) => apiCall('POST', { action: 'update_player', id, data: updates }),
+  deletePlayer: (id) => apiCall('POST', { action: 'delete_player', id }),
+
+  addEvent: (event) => apiCall('POST', { action: 'add_event', data: event }),
+  updateEvent: (id, updates) => apiCall('POST', { action: 'update_event', id, data: updates }),
+  deleteEvent: (id) => apiCall('POST', { action: 'delete_event', id }),
+};
+
 // ===== DESIGN SYSTEM =====
 const colors = {
   primary: '#1E88E5',      // Azzurro principale
@@ -34,6 +83,41 @@ const animations = `
   @keyframes pulse {
     0%, 100% { transform: scale(1); }
     50% { transform: scale(1.05); }
+  }
+    /* RESPONSIVE CALENDARIO MOBILE */
+  @media (max-width: 768px) {
+    .calendar-cell {
+      padding: 4px !important;
+      min-height: 60px !important;
+      font-size: 12px !important;
+    }
+    .calendar-event {
+      font-size: 9px !important;
+      padding: 2px 4px !important;
+    }
+    .calendar-header {
+      font-size: 12px !important;
+      padding: 4px !important;
+    }
+    .calendar-nav-button {
+      padding: 8px 12px !important;
+      font-size: 12px !important;
+    }
+    .calendar-month-title {
+      font-size: 18px !important;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .calendar-day-name {
+      font-size: 10px !important;
+    }
+    .calendar-cell {
+      min-height: 50px !important;
+    }
+    .calendar-event {
+      font-size: 8px !important;
+    }
   }
 `;
 
@@ -198,180 +282,146 @@ const NotificationProvider = ({ children }) => {
 
 // ===== APP PROVIDER =====
 const AppProvider = ({ children }) => {
-  // Funzione per caricare dati dal localStorage
-  const loadFromStorage = (key, defaultValue) => {
-    try {
-      const item = localStorage.getItem(key);
-      return item ? JSON.parse(item) : defaultValue;
-    } catch (error) {
-      console.error(`Errore caricamento ${key}:`, error);
-      return defaultValue;
-    }
-  };
+  const [teams, setTeams] = useState({});
+  const [players, setPlayers] = useState({});
+  const [events, setEvents] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Dati iniziali per demo
-  const initialTeams = {
-    team1: { id: 'team1', name: 'Prima Squadra', category: 'Seniores', color: colors.primary, icon: '⚽' },
-    team2: { id: 'team2', name: 'Juniores', category: 'Under 19', color: colors.secondary, icon: '🏆' },
-    team3: { id: 'team3', name: 'Allievi', category: 'Under 17', color: colors.accent, icon: '⭐' },
-  };
-
-  const initialPlayers = {
-    team1: [
-      { id: 'p1', name: 'Marco Rossi', role: 'Portiere', number: 1, phone: '333-1234567', email: 'marco@test.it' },
-      { id: 'p2', name: 'Luca Bianchi', role: 'Difensore', number: 4, phone: '333-2345678', email: 'luca@test.it' },
-      { id: 'p3', name: 'Andrea Verdi', role: 'Centrocampista', number: 8, phone: '333-3456789', email: 'andrea@test.it' },
-      { id: 'p4', name: 'Paolo Neri', role: 'Attaccante', number: 9, phone: '333-4567890', email: 'paolo@test.it' },
-    ],
-    team2: [
-      { id: 'p5', name: 'Simone Russo', role: 'Portiere', number: 1, phone: '333-5678901', email: 'simone@test.it' },
-      { id: 'p6', name: 'Matteo Ferrari', role: 'Difensore', number: 5, phone: '333-6789012', email: 'matteo@test.it' },
-    ],
-    team3: [
-      { id: 'p7', name: 'Davide Conti', role: 'Centrocampista', number: 7, phone: '333-7890123', email: 'davide@test.it' },
-      { id: 'p8', name: 'Francesco Marino', role: 'Attaccante', number: 10, phone: '333-8901234', email: 'francesco@test.it' },
-    ],
-  };
-
-  const initialEvents = [
-    {
-      id: 'e1',
-      teamId: 'team1',
-      type: 'allenamento',
-      title: 'Allenamento Tattico',
-      date: new Date(2025, 10, 14).toISOString(),
-      time: '18:30',
-      location: 'Campo Principale',
-      description: 'Lavoro sulla fase difensiva',
-      convocati: ['p1', 'p2', 'p3', 'p4'],
-      responses: {},
-      createdBy: 'admin',
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: 'e2',
-      teamId: 'team1',
-      type: 'partita',
-      title: 'Prima Squadra vs Juventus',
-      date: new Date(2025, 10, 16).toISOString(),
-      time: '15:00',
-      location: 'Stadio Comunale',
-      opponent: 'Juventus FC',
-      description: 'Partita di campionato',
-      convocati: ['p1', 'p2', 'p3', 'p4'],
-      responses: {},
-      createdBy: 'admin',
-      createdAt: new Date().toISOString(),
-    },
-  ];
-
-  // Carica dati dal localStorage o usa i valori iniziali
-  const [teams, setTeams] = useState(() => loadFromStorage('presenzaCalcio_teams', initialTeams));
-  const [players, setPlayers] = useState(() => loadFromStorage('presenzaCalcio_players', initialPlayers));
-  const [events, setEvents] = useState(() => loadFromStorage('presenzaCalcio_events', initialEvents));
-
-  // Salva nel localStorage ogni volta che cambiano i dati
+  // Carica dati all'avvio
   useEffect(() => {
-    localStorage.setItem('presenzaCalcio_teams', JSON.stringify(teams));
-  }, [teams]);
+    const loadData = async () => {
+      try {
+        setIsLoading(true);
+        const data = await api.loadAll();
+        setTeams(data.teams);
+        setPlayers(data.players);
+        setEvents(data.events);
+      } catch (error) {
+        console.error('Errore caricamento:', error);
+        // Fallback a dati iniziali
+        const initialTeams = {
+          team1: { id: 'team1', name: 'Prima Squadra', category: 'Seniores', color: colors.primary, icon: '⚽' },
+          team2: { id: 'team2', name: 'Juniores', category: 'Under 19', color: colors.secondary, icon: '🏆' },
+        };
+        const initialPlayers = {
+          team1: [
+            { id: 'p1', name: 'Marco Rossi', role: 'Portiere', number: 1, phone: '333-1234567', email: 'marco@test.it' },
+            { id: 'p2', name: 'Luca Bianchi', role: 'Difensore', number: 4, phone: '333-2345678', email: 'luca@test.it' },
+          ],
+          team2: []
+        };
+        const initialEvents = [];
+        setTeams(initialTeams);
+        setPlayers(initialPlayers);
+        setEvents(initialEvents);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadData();
+  }, []);
 
-  useEffect(() => {
-    localStorage.setItem('presenzaCalcio_players', JSON.stringify(players));
-  }, [players]);
-
-  useEffect(() => {
-    localStorage.setItem('presenzaCalcio_events', JSON.stringify(events));
-    console.log('📝 Eventi salvati:', events); // Debug
-  }, [events]);
-
-  const addTeam = useCallback((team) => {
+  const addTeam = useCallback(async (team) => {
+    await api.addTeam(team);
     setTeams(prev => ({ ...prev, [team.id]: team }));
     setPlayers(prev => ({ ...prev, [team.id]: [] }));
   }, []);
 
-  const updateTeam = useCallback((teamId, updates) => {
+  const updateTeam = useCallback(async (teamId, updates) => {
+    await api.updateTeam(teamId, updates);
     setTeams(prev => ({ ...prev, [teamId]: { ...prev[teamId], ...updates } }));
   }, []);
 
-  const deleteTeam = useCallback((teamId) => {
-    setTeams(prev => {
-      const newTeams = { ...prev };
-      delete newTeams[teamId];
-      return newTeams;
-    });
-    setPlayers(prev => {
-      const newPlayers = { ...prev };
-      delete newPlayers[teamId];
-      return newPlayers;
-    });
+  const deleteTeam = useCallback(async (teamId) => {
+    await api.deleteTeam(teamId);
+    setTeams(prev => { const n = { ...prev }; delete n[teamId]; return n; });
+    setPlayers(prev => { const n = { ...prev }; delete n[teamId]; return n; });
     setEvents(prev => prev.filter(e => e.teamId !== teamId));
   }, []);
 
-  const addPlayer = useCallback((teamId, player) => {
-    setPlayers(prev => ({
-      ...prev,
-      [teamId]: [...(prev[teamId] || []), player]
-    }));
+  const addPlayer = useCallback(async (teamId, player) => {
+    await api.addPlayer(teamId, player);
+    setPlayers(prev => ({ ...prev, [teamId]: [...(prev[teamId] || []), player] }));
   }, []);
 
-  const updatePlayer = useCallback((teamId, playerId, updates) => {
+  const updatePlayer = useCallback(async (teamId, playerId, updates) => {
+    await api.updatePlayer(playerId, updates);
     setPlayers(prev => ({
       ...prev,
       [teamId]: prev[teamId].map(p => p.id === playerId ? { ...p, ...updates } : p)
     }));
   }, []);
 
-  const deletePlayer = useCallback((teamId, playerId) => {
-    setPlayers(prev => ({
-      ...prev,
-      [teamId]: prev[teamId].filter(p => p.id !== playerId)
-    }));
+  const deletePlayer = useCallback(async (teamId, playerId) => {
+    await api.deletePlayer(playerId);
+    setPlayers(prev => ({ ...prev, [teamId]: prev[teamId].filter(p => p.id !== playerId) }));
   }, []);
 
-  const addEvent = useCallback((event) => {
+  const addEvent = useCallback(async (event) => {
+    await api.addEvent(event);
     setEvents(prev => [...prev, event]);
   }, []);
 
-  const updateEvent = useCallback((eventId, updates) => {
+  const updateEvent = useCallback(async (eventId, updates) => {
+    await api.updateEvent(eventId, updates);
     setEvents(prev => prev.map(e => e.id === eventId ? { ...e, ...updates } : e));
   }, []);
 
-  const deleteEvent = useCallback((eventId) => {
+  const deleteEvent = useCallback(async (eventId) => {
+    await api.deleteEvent(eventId);
     setEvents(prev => prev.filter(e => e.id !== eventId));
   }, []);
 
-  const addEventResponse = useCallback((eventId, playerId, response) => {
-    setEvents(prev => prev.map(e => {
-      if (e.id === eventId) {
-        const updatedEvent = {
-          ...e,
-          responses: {
-            ...e.responses,
-            [playerId]: {
-              status: response.status,
-              note: response.note || '',
-              respondedAt: new Date().toISOString(),
-            }
-          }
-        };
-        console.log('✅ Risposta aggiunta:', { eventId, playerId, response }); // Debug
-        return updatedEvent;
+  const addEventResponse = useCallback(async (eventId, playerId, response) => {
+    const event = events.find(e => e.id === eventId);
+    if (!event) return;
+
+    const updatedEvent = {
+      ...event,
+      responses: {
+        ...event.responses,
+        [playerId]: {
+          status: response.status,
+          note: response.note || '',
+          respondedAt: new Date().toISOString(),
+        }
       }
-      return e;
-    }));
-  }, []);
+    };
 
-  const resetAllData = useCallback(() => {
-    localStorage.removeItem('presenzaCalcio_teams');
-    localStorage.removeItem('presenzaCalcio_players');
-    localStorage.removeItem('presenzaCalcio_events');
+    await api.updateEvent(eventId, updatedEvent);
+    setEvents(prev => prev.map(e => e.id === eventId ? updatedEvent : e));
+  }, [events]);
+
+  const resetAllData = useCallback(async () => {
+    const teamIds = Object.keys(teams);
+    for (const teamId of teamIds) {
+      await api.deleteTeam(teamId);
+    }
     window.location.reload();
-  }, []);
+  }, [teams]);
 
-  const value = {
+  if (isLoading) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: colors.background,
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '64px', marginBottom: '16px' }}>⚽</div>
+          <div style={{ fontSize: '18px', color: colors.primary }}>Caricamento...</div>
+        </div>
+      </div>
+    );
+  }
+
+  return <AppContext.Provider value={{
     teams,
     players,
     events,
+    isLoading,
     addTeam,
     updateTeam,
     deleteTeam,
@@ -383,11 +433,8 @@ const AppProvider = ({ children }) => {
     deleteEvent,
     addEventResponse,
     resetAllData,
-  };
-
-  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+  }}>{children}</AppContext.Provider>;
 };
-
 // ===== STYLES =====
 const styles = {
   container: {
@@ -1853,6 +1900,7 @@ const CalendarView = ({ onNavigate, onBack }) => {
       days.push(
         <div
           key={day}
+          className="calendar-cell"
           style={{
             padding: '8px',
             border: `2px solid ${isToday ? colors.primary : colors.lightGray}`,
@@ -1887,6 +1935,7 @@ const CalendarView = ({ onNavigate, onBack }) => {
             return (
               <div
                 key={event.id}
+                className="calendar-event"
                 onClick={() => onNavigate('event-detail', event.id)}
                 style={{
                   padding: '4px 6px',
@@ -1925,10 +1974,8 @@ const CalendarView = ({ onNavigate, onBack }) => {
         {/* Navigation */}
         <div style={styles.card}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Button title="← Mese Precedente" onPress={previousMonth} variant="outline" />
-            <h2 style={{ margin: 0, color: colors.primary }}>
-              {monthNames[month]} {year}
-            </h2>
+            <Button title="← Mese Precedente" onPress={previousMonth} variant="outline" className="calendar-nav-button" />
+            {{<Button title="Mese Successivo →" onPress={nextMonth} variant="outline" className="calendar-nav-button" />
             <Button title="Mese Successivo →" onPress={nextMonth} variant="outline" />
           </div>
         </div>
@@ -1960,16 +2007,16 @@ const CalendarView = ({ onNavigate, onBack }) => {
             gap: '8px',
             marginBottom: '8px',
           }}>
-            {dayNames.map(day => (
-              <div key={day} style={{ 
-                fontWeight: '700', 
-                textAlign: 'center',
-                padding: '8px',
-                color: colors.primary,
-              }}>
-                {day}
-              </div>
-            ))}
+           {dayNames.map(day => (
+  <div key={day} className="calendar-header calendar-day-name" style={{ 
+    fontWeight: '700', 
+    textAlign: 'center',
+    padding: '8px',
+    color: colors.primary,
+  }}>
+    {day}
+  </div>
+))}
           </div>
 
           {/* Days Grid */}
