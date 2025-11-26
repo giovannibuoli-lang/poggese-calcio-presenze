@@ -1777,7 +1777,7 @@ const EventDetail = ({ onNavigate, onBack, eventId }) => {
                           💬 <strong>Nota:</strong> {response.note}
                         </div>
                       )
-                      
+                      }
                       {response && (
                         <div style={{ marginTop: '8px', fontSize: '12px', color: colors.gray }}>
                           🕐 Risposto il {formatDate(response.respondedAt)} alle {new Date(response.respondedAt).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
