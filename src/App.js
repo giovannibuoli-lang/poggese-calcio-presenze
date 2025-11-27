@@ -372,25 +372,37 @@ const AppProvider = ({ children }) => {
     setEvents(prev => prev.filter(e => e.id !== eventId));
   }, []);
 
-  const addEventResponse = useCallback(async (eventId, playerId, response) => {
-    const event = events.find(e => e.id === eventId);
-    if (!event) return;
+const addEventResponse = useCallback(async (eventId, playerId, response) => {
+  const event = events.find(e => e.id === eventId);
+  if (!event) return;
 
-    const updatedEvent = {
-      ...event,
-      responses: {
-        ...event.responses,
-        [playerId]: {
-          status: response.status,
-          note: response.note || '',
-          respondedAt: new Date().toISOString(),
-        }
-      }
-    };
+  const updatedResponses = {
+    ...event.responses,
+    [playerId]: {
+      status: response.status,
+      note: response.note || '',
+      respondedAt: new Date().toISOString(),
+    }
+  };
 
-    await api.updateEvent(eventId, updatedEvent);
-    setEvents(prev => prev.map(e => e.id === eventId ? updatedEvent : e));
-  }, [events]);
+  const updates = {
+    teamId: event.team_id,
+    type: event.type,
+    title: event.title,
+    date: event.date,
+    time: event.time,
+    location: event.location,
+    opponent: event.opponent || '',
+    description: event.description || '',
+    convocati: event.convocati,
+    responses: updatedResponses,
+  };
+
+  await api.updateEvent(eventId, updates);
+  
+  const updatedEvent = { ...event, responses: updatedResponses };
+  setEvents(prev => prev.map(e => e.id === eventId ? updatedEvent : e));
+}, [events]);
 
   const resetAllData = useCallback(async () => {
     const teamIds = Object.keys(teams);
