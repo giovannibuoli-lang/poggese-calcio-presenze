@@ -51,15 +51,16 @@ export default async function handler(req, res) {
         return res.json({ players });
       }
       
-      if (table === 'events') {
-        const events = await queryD1('SELECT * FROM events');
-        const parsedEvents = events.map(e => ({
-          ...e,
-          convocati: JSON.parse(e.convocati),
-          responses: JSON.parse(e.responses),
-        }));
-        return res.json({ events: parsedEvents });
-      }
+if (table === 'events') {
+  const events = await queryD1('SELECT * FROM events');
+  const parsedEvents = events.map(e => ({
+    ...e,
+    teamId: e.team_id, 
+    convocati: JSON.parse(e.convocati),
+    responses: JSON.parse(e.responses),
+  }));
+  return res.json({ events: parsedEvents });
+}
 
       return res.json({ teams: [], players: [], events: [] });
     }
