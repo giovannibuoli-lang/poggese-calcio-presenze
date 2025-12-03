@@ -3431,18 +3431,41 @@ export default () => (
         }}>
           <div style={{
             backgroundColor: colors.white,
-            padding: '40px',
-            borderRadius: '16px',
-            boxShadow: colors.shadowHover,
+            padding: '48px',
+            borderRadius: '20px',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
             textAlign: 'center',
-            maxWidth: '400px',
+            maxWidth: '450px',
+            width: '90%',
           }}>
-            <div style={{ fontSize: '64px', marginBottom: '16px' }}>⚽</div>
-            <h1 style={{ marginBottom: '8px', color: colors.primary }}>PresenzaCalcio</h1>
-            <p style={{ marginBottom: '32px', color: colors.gray }}>
-              Accedi per gestire le tue squadre
+            <div style={{ fontSize: '80px', marginBottom: '24px' }}>⚽</div>
+            <h1 style={{ 
+              marginBottom: '12px', 
+              color: colors.primary,
+              fontSize: '32px',
+              fontWeight: 'bold',
+            }}>PresenzaCalcio</h1>
+            <p style={{ 
+              marginBottom: '40px', 
+              color: colors.gray,
+              fontSize: '16px',
+            }}>
+              Sistema di Gestione Presenze Sportive
             </p>
-            <SignIn routing="hash" />
+            <SignIn 
+              routing="hash"
+              appearance={{
+                elements: {
+                  rootBox: {
+                    width: '100%',
+                  },
+                  card: {
+                    boxShadow: 'none',
+                    padding: 0,
+                  },
+                },
+              }}
+            />
           </div>
         </div>
       </SignedOut>
