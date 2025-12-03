@@ -1,4 +1,5 @@
 import React, { useState, useContext, createContext, useMemo, useCallback, useEffect } from 'react';
+import { SignedIn, SignedOut, SignIn, SignUp, UserButton, useUser } from '@clerk/clerk-react';
 
 // ===== API CLIENT =====
 const API_URL = '/api/db';
@@ -3023,7 +3024,7 @@ const PlayerEvents = ({ onLogout }) => {
             <div style={styles.headerTitle}>⚽ Le Mie Convocazioni</div>
             <div style={styles.headerSubtitle}>{currentPlayer.name} • #{currentPlayer.number}</div>
           </div>
-          <Button title="Esci" onPress={onLogout} variant="outline" style={{ color: colors.white, borderColor: colors.white }} />
+        <UserButton />
         </div>
       </div>
       <div style={styles.content}>
@@ -3420,7 +3421,34 @@ const App = () => {
 export default () => (
   <NotificationProvider>
     <AppProvider>
-      <App />
+      <SignedOut>
+        <div style={{
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryDark} 100%)`,
+        }}>
+          <div style={{
+            backgroundColor: colors.white,
+            padding: '40px',
+            borderRadius: '16px',
+            boxShadow: colors.shadowHover,
+            textAlign: 'center',
+            maxWidth: '400px',
+          }}>
+            <div style={{ fontSize: '64px', marginBottom: '16px' }}>⚽</div>
+            <h1 style={{ marginBottom: '8px', color: colors.primary }}>PresenzaCalcio</h1>
+            <p style={{ marginBottom: '32px', color: colors.gray }}>
+              Accedi per gestire le tue squadre
+            </p>
+            <SignIn routing="hash" />
+          </div>
+        </div>
+      </SignedOut>
+      <SignedIn>
+        <App />
+      </SignedIn>
     </AppProvider>
   </NotificationProvider>
 );
