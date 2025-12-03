@@ -3381,9 +3381,9 @@ const App = () => {
 
   return (
     <>
-      {currentScreen === 'login' && (
-        <LoginScreen onLogin={handleLogin} />
-      )}
+      {currentScreen === 'role-selection' && (
+  <LoginScreen onLogin={handleLogin} />
+)}
       {currentScreen === 'dashboard' && (
         <Dashboard role={currentRole} onNavigate={handleNavigate} onLogout={handleLogout} />
       )}
