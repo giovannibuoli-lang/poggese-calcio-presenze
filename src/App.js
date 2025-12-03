@@ -3429,15 +3429,16 @@ export default () => (
           justifyContent: 'center',
           background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryDark} 100%)`,
         }}>
-          <div style={{
-            backgroundColor: colors.white,
-            padding: '48px',
-            borderRadius: '20px',
-            boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
-            textAlign: 'center',
-            maxWidth: '450px',
-            width: '90%',
-          }}>
+         <div style={{
+  backgroundColor: colors.white,
+  padding: '60px 50px',
+  borderRadius: '24px',
+  boxShadow: '0 25px 70px rgba(0,0,0,0.25)',
+  textAlign: 'center',
+  maxWidth: '480px',
+  width: '92%',
+  margin: '0 auto',
+}}>
             <div style={{ fontSize: '80px', marginBottom: '24px' }}>⚽</div>
             <h1 style={{ 
               marginBottom: '12px', 
