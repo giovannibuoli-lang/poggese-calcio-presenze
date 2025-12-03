@@ -3348,7 +3348,7 @@ const PlayerEvents = ({ onLogout }) => {
 
 // ===== MAIN APP =====
 const App = () => {
-  const [currentScreen, setCurrentScreen] = useState('login');
+  const [currentScreen, setCurrentScreen] = useState('role-selection');  
   const [currentRole, setCurrentRole] = useState('');
   const [screenData, setScreenData] = useState(null);
 
@@ -3365,7 +3365,7 @@ const App = () => {
 
   const handleLogout = () => {
     setCurrentRole('');
-    setCurrentScreen('login');
+    setCurrentScreen('role-selection');
     setScreenData(null);
   };
 
