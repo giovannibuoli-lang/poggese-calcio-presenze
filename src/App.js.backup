@@ -1,11 +1,4 @@
 import React, { useState, useContext, createContext, useMemo, useCallback, useEffect } from 'react';
-import InstallPrompt from './InstallPrompt';
-import { 
-  register as registerServiceWorker,
-  requestNotificationPermission,
-  sendLocalNotification,
-  scheduleEventNotification 
-} from './serviceWorkerRegistration';
 
 // ===== API CLIENT =====
 const API_URL = '/api/db';
@@ -3358,61 +3351,6 @@ const App = () => {
   const [currentRole, setCurrentRole] = useState('');
   const [screenData, setScreenData] = useState(null);
 
-
-const [pwaInstalled, setPwaInstalled] = useState(false);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
-  const [serviceWorkerReady, setServiceWorkerReady] = useState(false);
-
-// ===== PWA SERVICE WORKER =====
-  useEffect(() => {
-    // Controlla se l'app è già installata
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
-    setPwaInstalled(isStandalone);
-
-    // Registra Service Worker con callbacks
-    const onSuccess = (registration) => {
-      console.log('✅ Service Worker registrato con successo:', registration.scope);
-      setServiceWorkerReady(true);
-    };
-
-    const onUpdate = (registration) => {
-      console.log('🔄 Service Worker aggiornato!');
-      if (registration.waiting) {
-        registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-      }
-    };
-
-    const onRegistered = (registration) => {
-      console.log('📝 Service Worker in fase di registrazione...');
-    };
-
-    registerServiceWorker({
-      onSuccess,
-      onUpdate,
-      onRegistered
-    });
-
-    // Richiedi permessi notifiche dopo 3 secondi
-    const notificationTimer = setTimeout(() => {
-      requestNotificationPermission().then(granted => {
-        setNotificationsEnabled(granted);
-      });
-    }, 3000);
-
-    // Listener per quando l'app viene installata
-    const handleAppInstalled = () => {
-      console.log('🎉 App installata con successo!');
-      setPwaInstalled(true);
-    };
-
-    window.addEventListener('appinstalled', handleAppInstalled);
-
-    return () => {
-      clearTimeout(notificationTimer);
-      window.removeEventListener('appinstalled', handleAppInstalled);
-    };
-  }, []);
-
   const handleLogin = (role) => {
     setCurrentRole(role);
     if (role === 'player') {
@@ -3475,7 +3413,6 @@ const [pwaInstalled, setPwaInstalled] = useState(false);
       {currentScreen === 'my-events' && (
         <PlayerEvents onLogout={handleLogout} />
       )}
-      {!pwaInstalled && <InstallPrompt />}
     </>
   );
 };
