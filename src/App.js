@@ -1,11 +1,5 @@
 import React, { useState, useContext, createContext, useMemo, useCallback, useEffect } from 'react';
-import InstallPrompt from './InstallPrompt';
-import { 
-  register as registerServiceWorker,
-  requestNotificationPermission,
-  sendLocalNotification,
-  scheduleEventNotification 
-} from './serviceWorkerRegistration';
+import { SignedIn, SignedOut, SignIn, SignUp, UserButton, useUser } from '@clerk/clerk-react';
 
 // ===== API CLIENT =====
 const API_URL = '/api/db';
@@ -3030,7 +3024,7 @@ const PlayerEvents = ({ onLogout }) => {
             <div style={styles.headerTitle}>⚽ Le Mie Convocazioni</div>
             <div style={styles.headerSubtitle}>{currentPlayer.name} • #{currentPlayer.number}</div>
           </div>
-          <Button title="Esci" onPress={onLogout} variant="outline" style={{ color: colors.white, borderColor: colors.white }} />
+        <UserButton />
         </div>
       </div>
       <div style={styles.content}>
@@ -3354,7 +3348,7 @@ const PlayerEvents = ({ onLogout }) => {
 
 // ===== MAIN APP =====
 const App = () => {
-  const [currentScreen, setCurrentScreen] = useState('login');
+  const [currentScreen, setCurrentScreen] = useState('role-selection');  
   const [currentRole, setCurrentRole] = useState('');
   const [screenData, setScreenData] = useState(null);
 
@@ -3426,7 +3420,7 @@ const [pwaInstalled, setPwaInstalled] = useState(false);
 
   const handleLogout = () => {
     setCurrentRole('');
-    setCurrentScreen('login');
+    setCurrentScreen('role-selection');
     setScreenData(null);
   };
 
@@ -3442,9 +3436,9 @@ const [pwaInstalled, setPwaInstalled] = useState(false);
 
   return (
     <>
-      {currentScreen === 'login' && (
-        <LoginScreen onLogin={handleLogin} />
-      )}
+      {currentScreen === 'role-selection' && (
+  <LoginScreen onLogin={handleLogin} />
+)}
       {currentScreen === 'dashboard' && (
         <Dashboard role={currentRole} onNavigate={handleNavigate} onLogout={handleLogout} />
       )}
@@ -3483,7 +3477,58 @@ const [pwaInstalled, setPwaInstalled] = useState(false);
 export default () => (
   <NotificationProvider>
     <AppProvider>
-      <App />
+      <SignedOut>
+        <div style={{
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryDark} 100%)`,
+        }}>
+         <div style={{
+  backgroundColor: colors.white,
+  padding: '60px 50px',
+  borderRadius: '24px',
+  boxShadow: '0 25px 70px rgba(0,0,0,0.25)',
+  textAlign: 'center',
+  maxWidth: '480px',
+  width: '92%',
+  margin: '0 auto',
+}}>
+            <div style={{ fontSize: '80px', marginBottom: '24px' }}>⚽</div>
+            <h1 style={{ 
+              marginBottom: '12px', 
+              color: colors.primary,
+              fontSize: '32px',
+              fontWeight: 'bold',
+            }}>PresenzaCalcio</h1>
+            <p style={{ 
+              marginBottom: '40px', 
+              color: colors.gray,
+              fontSize: '16px',
+            }}>
+              Sistema di Gestione Presenze Sportive
+            </p>
+            <SignIn 
+              routing="hash"
+              appearance={{
+                elements: {
+                  rootBox: {
+                    width: '100%',
+                  },
+                  card: {
+                    boxShadow: 'none',
+                    padding: 0,
+                  },
+                },
+              }}
+            />
+          </div>
+        </div>
+      </SignedOut>
+      <SignedIn>
+        <App />
+      </SignedIn>
     </AppProvider>
   </NotificationProvider>
 );
