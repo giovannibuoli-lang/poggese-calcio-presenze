@@ -1,12 +1,4 @@
 import React, { useState, useContext, createContext, useMemo, useCallback, useEffect } from 'react';
-
-import InstallPrompt from './InstallPrompt';
-import { 
-  register as registerServiceWorker,
-  requestNotificationPermission,
-  sendLocalNotification,
-  scheduleEventNotification 
-} from './serviceWorkerRegistration';
 import { SignedIn, SignedOut, SignIn, SignUp, UserButton, useUser } from '@clerk/clerk-react';
 
 // ===== API CLIENT =====
@@ -3366,6 +3358,8 @@ const [pwaInstalled, setPwaInstalled] = useState(false);
   const [serviceWorkerReady, setServiceWorkerReady] = useState(false);
 
 // ===== PWA SERVICE WORKER =====
+  // TEMPORANEAMENTE DISABILITATO - Da riattivare quando aggiungeremo i file PWA
+  /*
   useEffect(() => {
     // Controlla se l'app è già installata
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
@@ -3414,6 +3408,7 @@ const [pwaInstalled, setPwaInstalled] = useState(false);
       window.removeEventListener('appinstalled', handleAppInstalled);
     };
   }, []);
+  */
 
   const handleLogin = (role) => {
     setCurrentRole(role);
@@ -3477,7 +3472,8 @@ const [pwaInstalled, setPwaInstalled] = useState(false);
       {currentScreen === 'my-events' && (
         <PlayerEvents onLogout={handleLogout} />
       )}
-      {!pwaInstalled && <InstallPrompt />}
+      {/* TEMPORANEAMENTE DISABILITATO - InstallPrompt verrà riattivato con i file PWA */}
+      {/* {!pwaInstalled && <InstallPrompt />} */}
     </>
   );
 };
