@@ -1,4 +1,12 @@
 import React, { useState, useContext, createContext, useMemo, useCallback, useEffect } from 'react';
+
+import InstallPrompt from './InstallPrompt';
+import { 
+  register as registerServiceWorker,
+  requestNotificationPermission,
+  sendLocalNotification,
+  scheduleEventNotification 
+} from './serviceWorkerRegistration';
 import { SignedIn, SignedOut, SignIn, SignUp, UserButton, useUser } from '@clerk/clerk-react';
 
 // ===== API CLIENT =====
