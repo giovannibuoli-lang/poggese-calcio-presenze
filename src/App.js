@@ -3478,61 +3478,91 @@ const [pwaInstalled, setPwaInstalled] = useState(false);
   );
 };
 
-export default () => (
-  <NotificationProvider>
-    <AppProvider>
-      <SignedOut>
-        <div style={{
-          minHeight: '100vh',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryDark} 100%)`,
-        }}>
-         <div style={{
-  backgroundColor: colors.white,
-  padding: '60px 50px',
-  borderRadius: '24px',
-  boxShadow: '0 25px 70px rgba(0,0,0,0.25)',
-  textAlign: 'center',
-  maxWidth: '480px',
-  width: '92%',
-  margin: '0 auto',
-}}>
-            <div style={{ fontSize: '80px', marginBottom: '24px' }}>⚽</div>
-            <h1 style={{ 
-              marginBottom: '12px', 
-              color: colors.primary,
-              fontSize: '32px',
-              fontWeight: 'bold',
-            }}>PresenzaCalcio</h1>
-            <p style={{ 
-              marginBottom: '40px', 
-              color: colors.gray,
-              fontSize: '16px',
-            }}>
-              Sistema di Gestione Presenze Sportive
-            </p>
-            <SignIn 
-              routing="hash"
-              appearance={{
-                elements: {
-                  rootBox: {
-                    width: '100%',
+// Componente Root che deregistra il Service Worker vecchio
+const RootApp = () => {
+  // Deregistra Service Worker all'avvio per evitare problemi di cache
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(registrations) {
+        for (let registration of registrations) {
+          registration.unregister().then(function(success) {
+            if (success) {
+              console.log('✅ Service Worker vecchio deregistrato');
+            }
+          });
+        }
+      });
+      
+      // Pulisci anche la cache
+      if ('caches' in window) {
+        caches.keys().then(function(names) {
+          for (let name of names) {
+            caches.delete(name);
+            console.log('🗑️ Cache pulita:', name);
+          }
+        });
+      }
+    }
+  }, []);
+
+  return (
+    <NotificationProvider>
+      <AppProvider>
+        <SignedOut>
+          <div style={{
+            minHeight: '100vh',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryDark} 100%)`,
+          }}>
+           <div style={{
+    backgroundColor: colors.white,
+    padding: '60px 50px',
+    borderRadius: '24px',
+    boxShadow: '0 25px 70px rgba(0,0,0,0.25)',
+    textAlign: 'center',
+    maxWidth: '480px',
+    width: '92%',
+    margin: '0 auto',
+  }}>
+              <div style={{ fontSize: '80px', marginBottom: '24px' }}>⚽</div>
+              <h1 style={{ 
+                marginBottom: '12px', 
+                color: colors.primary,
+                fontSize: '32px',
+                fontWeight: 'bold',
+              }}>PresenzaCalcio</h1>
+              <p style={{ 
+                marginBottom: '40px', 
+                color: colors.gray,
+                fontSize: '16px',
+              }}>
+                Sistema di Gestione Presenze Sportive
+              </p>
+              <SignIn 
+                routing="hash"
+                appearance={{
+                  elements: {
+                    rootBox: {
+                      width: '100%',
+                    },
+                    card: {
+                      boxShadow: 'none',
+                      padding: 0,
+                    },
                   },
-                  card: {
-                    boxShadow: 'none',
-                    padding: 0,
-                  },
-                },
-              }}
-            />
+                }}
+              />
+            </div>
           </div>
-        </div>
-      </SignedOut>
-      <SignedIn>
-        <App />
-      </SignedIn>
-    </AppProvider>
-  </NotificationProvider>
-);
+        </SignedOut>
+        <SignedIn>
+          <App />
+        </SignedIn>
+      </AppProvider>
+    </NotificationProvider>
+  );
+};
+
+export default RootApp;
