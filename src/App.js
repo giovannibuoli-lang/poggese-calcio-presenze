@@ -1,5 +1,8 @@
 import React, { useState, useContext, createContext, useMemo, useCallback, useEffect } from 'react';
 import { SignedIn, SignedOut, SignIn, SignUp, UserButton, useUser } from '@clerk/clerk-react';
+import * as NotificationManager from './notificationManager';
+import InstallPrompt from './InstallPrompt';
+import { register as registerServiceWorker } from './serviceWorkerRegistration';
 
 // ===== API CLIENT =====
 const API_URL = '/api/db';
@@ -361,7 +364,21 @@ const AppProvider = ({ children }) => {
   const addEvent = useCallback(async (event) => {
     await api.addEvent(event);
     setEvents(prev => [...prev, event]);
-  }, []);
+    
+    // 🔔 NOTIFICHE: Notifica istantanea ai giocatori convocati
+    if (event.convocati && event.convocati.length > 0) {
+      const teamPlayers = players[event.teamId] || [];
+      const convocatedPlayers = teamPlayers.filter(p => event.convocati.includes(p.id));
+      
+      // Invia notifica istantanea
+      NotificationManager.notifyNewEvent(event, convocatedPlayers);
+      
+      // Schedula notifiche future (24h prima)
+      NotificationManager.scheduleEventNotifications(event, convocatedPlayers);
+      
+      console.log(`📬 Notifiche inviate a ${convocatedPlayers.length} giocatori`);
+    }
+  }, [players]);
 
   const updateEvent = useCallback(async (eventId, updates) => {
     await api.updateEvent(eventId, updates);
@@ -403,7 +420,9 @@ const addEventResponse = useCallback(async (eventId, playerId, response) => {
   
   const updatedEvent = { ...event, responses: updatedResponses };
   setEvents(prev => prev.map(e => e.id === eventId ? updatedEvent : e));
-}, [events]);
+  
+  // Notifica rimossa - L'allenatore vedrà le risposte nell'interfaccia
+}, [events, players]);
 
   const resetAllData = useCallback(async () => {
     const teamIds = Object.keys(teams);
@@ -1559,7 +1578,7 @@ const CreateEditEvent = ({ onNavigate, onBack, eventId = null }) => {
 };
 
 // ===== EVENT DETAIL =====
-const EventDetail = ({ onNavigate, onBack, eventId }) => {
+const EventDetail = ({ onNavigate, onBack, eventId, currentRole }) => {
   const { events, teams, players, deleteEvent, addEventResponse } = useAppContext();
   const { addNotification } = useNotification();
 
@@ -1568,6 +1587,15 @@ const EventDetail = ({ onNavigate, onBack, eventId }) => {
   const teamPlayers = event ? players[event.teamId] || [] : [];
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  // Verifica se l'appello è stato fatto
+  const attendanceTaken = NotificationManager.isAttendanceTaken(eventId);
+  
+  // Verifica se l'evento è oggi o nel passato (può fare appello)
+  const eventDate = event ? new Date(event.date) : null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const canTakeAttendance = eventDate && eventDate <= today;
 
   if (!event) {
     return (
@@ -1657,6 +1685,16 @@ const EventDetail = ({ onNavigate, onBack, eventId }) => {
           </div>
 
           <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+            {/* Bottone Fai Appello - Solo per Admin/Coach e solo se evento è oggi o passato */}
+            {(currentRole === 'admin' || currentRole === 'coach') && canTakeAttendance && (
+              <Button
+                title={attendanceTaken ? "📋 Vedi Appello" : "📋 Fai Appello"}
+                onPress={() => onNavigate('attendance', eventId)}
+                variant={attendanceTaken ? "success" : "primary"}
+                style={{ flex: 1 }}
+              />
+            )}
+            
             <Button
               title="📱 Invia su WhatsApp"
               onPress={handleSendWhatsApp}
@@ -1855,6 +1893,308 @@ const EventDetail = ({ onNavigate, onBack, eventId }) => {
             </div>
           </div>
         )}
+      </div>
+    </div>
+  );
+};
+
+// ===== ATTENDANCE VIEW (APPELLO DAL VIVO) =====
+const AttendanceView = ({ onBack, eventId }) => {
+  const { events, teams, players } = useAppContext();
+  const { addNotification } = useNotification();
+  
+  const event = events.find(e => e.id === eventId);
+  const team = event ? teams[event.teamId] : null;
+  const teamPlayers = event ? players[event.teamId] || [] : [];
+  const convocatiList = teamPlayers.filter(p => event.convocati?.includes(p.id));
+  
+  // Carica appello esistente se presente
+  const existingAttendance = NotificationManager.getRealAttendance(eventId);
+  const [attendance, setAttendance] = useState(
+    existingAttendance?.attendanceData || {}
+  );
+  const [isCompleted, setIsCompleted] = useState(!!existingAttendance);
+
+  if (!event) {
+    return (
+      <div style={styles.container}>
+        <style>{animations}</style>
+        <div style={styles.content}>
+          <div style={styles.card}>
+            <div style={{ textAlign: 'center', padding: '48px' }}>
+              <div style={{ fontSize: '64px', marginBottom: '16px' }}>❌</div>
+              <div style={{ fontSize: '18px', marginBottom: '24px' }}>Evento non trovato</div>
+              <Button title="← Indietro" onPress={onBack} />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const handleAttendanceChange = (playerId, status) => {
+    setAttendance(prev => ({
+      ...prev,
+      [playerId]: status
+    }));
+  };
+
+  const handleSaveAttendance = () => {
+    // Salva l'appello
+    const savedData = NotificationManager.saveRealAttendance(eventId, attendance);
+    
+    // Calcola statistiche
+    const stats = {
+      present: Object.values(attendance).filter(s => s === 'presente').length,
+      absent: Object.values(attendance).filter(s => s === 'assente').length,
+      injured: Object.values(attendance).filter(s => s === 'infortunato').length,
+    };
+    
+    // Notifica completamento
+    NotificationManager.notifyAttendanceCompleted(event, stats);
+    
+    setIsCompleted(true);
+    addNotification('✅ Appello salvato con successo!', 'success');
+  };
+
+  const getPlayerStatus = (playerId) => {
+    return attendance[playerId] || null;
+  };
+
+  const stats = {
+    present: Object.values(attendance).filter(s => s === 'presente').length,
+    absent: Object.values(attendance).filter(s => s === 'assente').length,
+    injured: Object.values(attendance).filter(s => s === 'infortunato').length,
+    total: convocatiList.length,
+  };
+
+  // Confronto con presenze confermate
+  const comparison = NotificationManager.compareAttendance(eventId, convocatiList);
+
+  return (
+    <div style={styles.container}>
+      <style>{animations}</style>
+      <div style={styles.header}>
+        <div style={styles.headerContent}>
+          <div>
+            <div style={styles.headerTitle}>
+              📋 Appello: {event.title}
+            </div>
+            <div style={styles.headerSubtitle}>
+              {formatDateTime(event.date, event.time)}
+            </div>
+          </div>
+          <Button 
+            title="← Indietro" 
+            onPress={onBack} 
+            variant="outline" 
+            style={{ color: colors.white, borderColor: colors.white }} 
+          />
+        </div>
+      </div>
+
+      <div style={styles.content}>
+        {/* Statistiche Appello */}
+        <div style={styles.card}>
+          <h3 style={{ marginBottom: '16px', color: colors.primary }}>
+            📊 Statistiche Appello
+          </h3>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+            gap: '16px',
+          }}>
+            <div style={{ 
+              textAlign: 'center', 
+              padding: '16px', 
+              backgroundColor: colors.background, 
+              borderRadius: '8px' 
+            }}>
+              <div style={{ fontSize: '32px', fontWeight: '700', color: colors.success }}>
+                {stats.present}
+              </div>
+              <div style={{ fontSize: '14px', color: colors.gray }}>Presenti</div>
+            </div>
+            <div style={{ 
+              textAlign: 'center', 
+              padding: '16px', 
+              backgroundColor: colors.background, 
+              borderRadius: '8px' 
+            }}>
+              <div style={{ fontSize: '32px', fontWeight: '700', color: colors.danger }}>
+                {stats.absent}
+              </div>
+              <div style={{ fontSize: '14px', color: colors.gray }}>Assenti</div>
+            </div>
+            <div style={{ 
+              textAlign: 'center', 
+              padding: '16px', 
+              backgroundColor: colors.background, 
+              borderRadius: '8px' 
+            }}>
+              <div style={{ fontSize: '32px', fontWeight: '700', color: colors.warning }}>
+                {stats.injured}
+              </div>
+              <div style={{ fontSize: '14px', color: colors.gray }}>Infortunati</div>
+            </div>
+            <div style={{ 
+              textAlign: 'center', 
+              padding: '16px', 
+              backgroundColor: colors.background, 
+              borderRadius: '8px' 
+            }}>
+              <div style={{ fontSize: '32px', fontWeight: '700', color: colors.primary }}>
+                {stats.total}
+              </div>
+              <div style={{ fontSize: '14px', color: colors.gray }}>Totale</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Confronto con Conferme (se appello completato) */}
+        {isCompleted && comparison && (
+          <div style={styles.card}>
+            <h3 style={{ marginBottom: '16px', color: colors.primary }}>
+              🎯 Confronto Conferme vs Presenze Reali
+            </h3>
+            <div style={{ marginBottom: '16px' }}>
+              <div style={{ 
+                fontSize: '48px', 
+                fontWeight: '700', 
+                color: comparison.accuracy >= 80 ? colors.success : 
+                       comparison.accuracy >= 60 ? colors.warning : colors.danger,
+                textAlign: 'center',
+                marginBottom: '8px',
+              }}>
+                {comparison.accuracy}%
+              </div>
+              <div style={{ textAlign: 'center', color: colors.gray }}>
+                Precisione Conferme
+              </div>
+            </div>
+            
+            {comparison.confirmedButAbsent.length > 0 && (
+              <div style={{ marginBottom: '12px' }}>
+                <strong style={{ color: colors.danger }}>❌ Hanno confermato ma erano assenti:</strong>
+                <div style={{ marginTop: '8px', color: colors.gray }}>
+                  {comparison.confirmedButAbsent.join(', ')}
+                </div>
+              </div>
+            )}
+            
+            {comparison.notConfirmedButPresent.length > 0 && (
+              <div>
+                <strong style={{ color: colors.success }}>✅ Non hanno confermato ma erano presenti:</strong>
+                <div style={{ marginTop: '8px', color: colors.gray }}>
+                  {comparison.notConfirmedButPresent.join(', ')}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Lista Giocatori */}
+        <div style={styles.card}>
+          <h3 style={{ marginBottom: '16px', color: colors.primary }}>
+            👥 Lista Convocati ({convocatiList.length})
+          </h3>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {convocatiList.map((player) => {
+              const playerStatus = getPlayerStatus(player.id);
+              const confirmedStatus = event.responses?.[player.id]?.status;
+              
+              return (
+                <div 
+                  key={player.id}
+                  style={{
+                    padding: '16px',
+                    backgroundColor: colors.background,
+                    borderRadius: '8px',
+                    border: `2px solid ${
+                      playerStatus === 'presente' ? colors.success :
+                      playerStatus === 'assente' ? colors.danger :
+                      playerStatus === 'infortunato' ? colors.warning :
+                      colors.lightGray
+                    }`,
+                  }}
+                >
+                  <div style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center',
+                    marginBottom: '12px',
+                  }}>
+                    <div>
+                      <div style={{ fontWeight: '600', fontSize: '16px' }}>
+                        {player.name}
+                      </div>
+                      {confirmedStatus && (
+                        <div style={{ fontSize: '12px', color: colors.gray, marginTop: '4px' }}>
+                          Confermato: {
+                            confirmedStatus === 'presente' ? '✅ Presente' :
+                            confirmedStatus === 'assente' ? '❌ Assente' :
+                            '❓ Forse'
+                          }
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <Button
+                      title="✅ Presente"
+                      onPress={() => handleAttendanceChange(player.id, 'presente')}
+                      variant={playerStatus === 'presente' ? 'success' : 'outline'}
+                      style={{ flex: 1 }}
+                      disabled={isCompleted}
+                    />
+                    <Button
+                      title="❌ Assente"
+                      onPress={() => handleAttendanceChange(player.id, 'assente')}
+                      variant={playerStatus === 'assente' ? 'danger' : 'outline'}
+                      style={{ flex: 1 }}
+                      disabled={isCompleted}
+                    />
+                    <Button
+                      title="🤕 Infortunato"
+                      onPress={() => handleAttendanceChange(player.id, 'infortunato')}
+                      variant={playerStatus === 'infortunato' ? 'warning' : 'outline'}
+                      style={{ flex: 1 }}
+                      disabled={isCompleted}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {!isCompleted && (
+            <div style={{ marginTop: '24px' }}>
+              <Button
+                title="💾 Salva Appello"
+                onPress={handleSaveAttendance}
+                variant="primary"
+                disabled={Object.keys(attendance).length === 0}
+                style={{ width: '100%' }}
+              />
+            </div>
+          )}
+
+          {isCompleted && (
+            <div style={{ 
+              marginTop: '24px', 
+              padding: '16px', 
+              backgroundColor: colors.success + '20',
+              borderRadius: '8px',
+              textAlign: 'center',
+              color: colors.success,
+              fontWeight: '600',
+            }}>
+              ✅ Appello completato e salvato
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -3358,8 +3698,6 @@ const [pwaInstalled, setPwaInstalled] = useState(false);
   const [serviceWorkerReady, setServiceWorkerReady] = useState(false);
 
 // ===== PWA SERVICE WORKER =====
-  // TEMPORANEAMENTE DISABILITATO - Da riattivare quando aggiungeremo i file PWA
-  /*
   useEffect(() => {
     // Controlla se l'app è già installata
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
@@ -3390,8 +3728,12 @@ const [pwaInstalled, setPwaInstalled] = useState(false);
 
     // Richiedi permessi notifiche dopo 3 secondi
     const notificationTimer = setTimeout(() => {
-      requestNotificationPermission().then(granted => {
+      NotificationManager.requestNotificationPermission().then(granted => {
         setNotificationsEnabled(granted);
+        if (granted) {
+          // Invia notifica di test
+          NotificationManager.sendTestNotification();
+        }
       });
     }, 3000);
 
@@ -3408,7 +3750,6 @@ const [pwaInstalled, setPwaInstalled] = useState(false);
       window.removeEventListener('appinstalled', handleAppInstalled);
     };
   }, []);
-  */
 
   const handleLogin = (role) => {
     setCurrentRole(role);
@@ -3467,13 +3808,15 @@ const [pwaInstalled, setPwaInstalled] = useState(false);
         <CreateEditEvent onNavigate={handleNavigate} onBack={handleBack} eventId={screenData} />
       )}
       {currentScreen === 'event-detail' && (
-        <EventDetail onNavigate={handleNavigate} onBack={handleBack} eventId={screenData} />
+        <EventDetail onNavigate={handleNavigate} onBack={handleBack} eventId={screenData} currentRole={currentRole} />
+      )}
+      {currentScreen === 'attendance' && (
+        <AttendanceView onBack={handleBack} eventId={screenData} />
       )}
       {currentScreen === 'my-events' && (
         <PlayerEvents onLogout={handleLogout} />
       )}
-      {/* TEMPORANEAMENTE DISABILITATO - InstallPrompt verrà riattivato con i file PWA */}
-      {/* {!pwaInstalled && <InstallPrompt />} */}
+      {!pwaInstalled && <InstallPrompt />}
     </>
   );
 };
