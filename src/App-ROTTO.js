@@ -3,6 +3,7 @@ import { SignedIn, SignedOut, SignIn, SignUp, UserButton, useUser } from '@clerk
 import * as NotificationManager from './notificationManager';
 import InstallPrompt from './InstallPrompt';
 import { register as registerServiceWorker } from './serviceWorkerRegistration';
+// Import componenti GDPR
 import PrivacyPolicy from './PrivacyPolicy';
 import TermsOfService from './TermsOfService';
 import CookiePolicy from './CookiePolicy';
@@ -15,30 +16,16 @@ import ParentalConsentForm from './ParentalConsentForm';
 const API_URL = '/api/db';
 
 const apiCall = async (method, body = null, query = '') => {
-  try {
-    const options = {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-    };
-    
-    if (body) options.body = JSON.stringify(body);
+  const options = {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+  };
+  
+  if (body) options.body = JSON.stringify(body);
 
-    const response = await fetch(`${API_URL}${query}`, options);
-    
-    if (!response.ok) {
-      throw new Error(`API Error: ${response.status} ${response.statusText}`);
-    }
-    
-    const contentType = response.headers.get('content-type');
-    if (!contentType || !contentType.includes('application/json')) {
-      throw new Error('Response is not JSON');
-    }
-    
-    return response.json();
-  } catch (error) {
-    console.error('API call failed:', error.message);
-    throw error;
-  }
+  const response = await fetch(`${API_URL}${query}`, options);
+  if (!response.ok) throw new Error(`API Error: ${response.statusText}`);
+  return response.json();
 };
 
 const api = {
@@ -231,7 +218,7 @@ const calculatePlayerStats = (player, events) => {
   let assenti = 0;
   
   playerEvents.forEach(event => {
-    const response = event.responses?.[player.id];
+    const response = event.responses[player.id];
     if (response) {
       if (response.status === 'presente') presenti++;
       else if (response.status === 'assente') assenti++;
@@ -323,7 +310,6 @@ const AppProvider = ({ children }) => {
         setEvents(data.events);
       } catch (error) {
         console.error('Errore caricamento:', error);
-        console.log('🔧 Impostazione dati demo...');
         // Fallback a dati iniziali
         const initialTeams = {
           team1: { id: 'team1', name: 'Prima Squadra', category: 'Seniores', color: colors.primary, icon: '⚽' },
@@ -340,9 +326,7 @@ const AppProvider = ({ children }) => {
         setTeams(initialTeams);
         setPlayers(initialPlayers);
         setEvents(initialEvents);
-        console.log('✅ Dati demo impostati:', { teams: initialTeams, players: initialPlayers, events: initialEvents });
       } finally {
-        console.log('🏁 setIsLoading(false)');
         setIsLoading(false);
       }
     };
@@ -419,7 +403,7 @@ const addEventResponse = useCallback(async (eventId, playerId, response) => {
   if (!event) return;
 
   const updatedResponses = {
-    ...(event.responses || {}),
+    ...event.responses,
     [playerId]: {
       status: response.status,
       note: response.note || '',
@@ -428,7 +412,7 @@ const addEventResponse = useCallback(async (eventId, playerId, response) => {
   };
 
   const updates = {
-    teamId: event.teamId,
+    teamId: event.team_id,
     type: event.type,
     title: event.title,
     date: event.date,
@@ -472,9 +456,6 @@ const addEventResponse = useCallback(async (eventId, playerId, response) => {
       </div>
     );
   }
-
-  console.log('🎯 isLoading è false, rendering AppContext.Provider...');
-  console.log('📊 Dati disponibili:', { teamsCount: Object.keys(teams).length, playersCount: Object.keys(players).length, eventsCount: events.length });
 
   return <AppContext.Provider value={{
     teams,
@@ -3714,14 +3695,11 @@ const PlayerEvents = ({ onLogout }) => {
 };
 
 // ===== MAIN APP =====
-const MainApp = () => {
-  console.log('⚽ Componente MainApp renderizzato!');
-  
+const App = () => {
   const [currentScreen, setCurrentScreen] = useState('role-selection');  
   const [currentRole, setCurrentRole] = useState('');
   const [screenData, setScreenData] = useState(null);
-
-
+  
 const [pwaInstalled, setPwaInstalled] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [serviceWorkerReady, setServiceWorkerReady] = useState(false);
@@ -3807,6 +3785,8 @@ const [pwaInstalled, setPwaInstalled] = useState(false);
     setScreenData(null);
   };
 
+  
+
   return (
     <>
       {currentScreen === 'role-selection' && (
@@ -3851,19 +3831,19 @@ const [pwaInstalled, setPwaInstalled] = useState(false);
 };
 
 // Componente Root che deregistra il Service Worker vecchio
-const App = () => {
-  console.log('🚀 Componente App principale renderizzato!');
-  
-  const { isLoaded: clerkLoaded, isSignedIn } = useUser();
-  
+// Componente Root che deregistra il Service Worker vecchio
+const RootApp = () => {
+  // State per pagine GDPR
   const [showPrivacy, setShowPrivacy] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
   const [showCookiePolicy, setShowCookiePolicy] = useState(false);
   const [showDataManagement, setShowDataManagement] = useState(false);
+  const [showAgeVerification, setShowAgeVerification] = useState(false);
+  const [showParentalConsent, setShowParentalConsent] = useState(false);
+  const [pendingUserData, setPendingUserData] = useState(null);
 
   // Deregistra Service Worker all'avvio per evitare problemi di cache
   useEffect(() => {
-    console.log('🔧 useEffect di pulizia Service Worker attivato');
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then(function(registrations) {
         for (let registration of registrations) {
@@ -3874,108 +3854,86 @@ const App = () => {
           });
         }
       });
-      
-      // Pulisci anche la cache
-      if ('caches' in window) {
-        caches.keys().then(function(names) {
-          for (let name of names) {
-            caches.delete(name);
-            console.log('🗑️ Cache pulita:', name);
-          }
-        });
-      }
     }
   }, []);
 
-  // Loading screen mentre Clerk carica
-  if (!clerkLoaded) {
-    console.log('⏳ Clerk sta caricando...');
-    return (
-      <div style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryDark} 100%)`,
-      }}>
-        <div style={{ textAlign: 'center', color: colors.white }}>
-          <div style={{ fontSize: '64px', marginBottom: '16px' }}>⚽</div>
-          <div style={{ fontSize: '18px' }}>Caricamento autenticazione...</div>
-        </div>
-      </div>
-    );
-  }
+  // Funzioni per gestire pagine GDPR
+  const handleAgeVerified = (data) => {
+    setShowAgeVerification(false);
+    console.log('Età verificata:', data);
+  };
 
-  console.log('✅ Clerk caricato! isSignedIn:', isSignedIn);
+  const handleParentalConsentRequired = (data) => {
+    setPendingUserData(data);
+    setShowAgeVerification(false);
+    setShowParentalConsent(true);
+  };
+
+  const handleParentalConsent = (consentData) => {
+    setShowParentalConsent(false);
+    console.log('Consenso genitori ricevuto:', consentData);
+  };
 
   return (
     <>
-      {console.log('📍 Rendering return dell\'App principale...')}
       <NotificationProvider>
         <AppProvider>
-          {!isSignedIn ? (
-            // Utente NON loggato - mostra schermata login
-            <>
-              {console.log('🔓 Mostrando schermata login - Utente NON loggato')}
+          <SignedOut>
+            <div style={{
+              minHeight: '100vh',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryDark} 100%)`,
+            }}>
               <div style={{
-                minHeight: '100vh',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryDark} 100%)`,
+                backgroundColor: colors.white,
+                padding: '60px 50px',
+                borderRadius: '24px',
+                boxShadow: '0 25px 70px rgba(0,0,0,0.25)',
+                textAlign: 'center',
+                maxWidth: '480px',
+                width: '92%',
+                margin: '0 auto',
               }}>
-               <div style={{
-        backgroundColor: colors.white,
-        padding: '60px 50px',
-        borderRadius: '24px',
-        boxShadow: '0 25px 70px rgba(0,0,0,0.25)',
-        textAlign: 'center',
-        maxWidth: '480px',
-        width: '92%',
-        margin: '0 auto',
-      }}>
-                  <div style={{ fontSize: '80px', marginBottom: '24px' }}>⚽</div>
-                  <h1 style={{ 
-                    marginBottom: '12px', 
-                    color: colors.primary,
-                    fontSize: '32px',
-                    fontWeight: 'bold',
-                  }}>Academy Hub</h1>
-                  <p style={{ 
-                    marginBottom: '40px', 
-                    color: colors.gray,
-                    fontSize: '16px',
-                  }}>
-                    Sistema di Gestione Presenze Sportive
-                  </p>
-                  <SignIn 
-                    routing="hash"
-                    appearance={{
-                      elements: {
-                        rootBox: {
-                          width: '100%',
-                        },
-                        card: {
-                          boxShadow: 'none',
-                          padding: 0,
-                        },
+                <div style={{ fontSize: '80px', marginBottom: '24px' }}>⚽</div>
+                <h1 style={{ 
+                  marginBottom: '12px', 
+                  color: colors.primary,
+                  fontSize: '32px',
+                  fontWeight: 'bold',
+                }}>Academy Hub</h1>
+                <p style={{ 
+                  marginBottom: '40px', 
+                  color: colors.gray,
+                  fontSize: '16px',
+                }}>
+                  Sistema di Gestione Presenze Sportive
+                </p>
+                <SignIn 
+                  routing="hash"
+                  appearance={{
+                    elements: {
+                      rootBox: {
+                        width: '100%',
                       },
-                    }}
-                  />
-                </div>
+                      card: {
+                        boxShadow: 'none',
+                        padding: 0,
+                      },
+                    },
+                  }}
+                />
               </div>
-            </>
-          ) : (
-            // Utente loggato - mostra app principale
-            <>
-              {console.log('🔐 Mostrando app principale - Utente loggato')}
-              <MainApp />
-            </>
-          )}
+            </div>
+          </SignedOut>
+          <SignedIn>
+            <App />
+          </SignedIn>
         </AppProvider>
       </NotificationProvider>
 
-      {/* GDPR Footer */}
+      {/* Footer con link GDPR */}
       <div style={{
         backgroundColor: '#1a1a1a',
         color: '#999',
@@ -4007,13 +3965,44 @@ const App = () => {
       {/* Cookie Banner */}
       <CookieBanner />
 
-      {/* GDPR Modals */}
-      {showPrivacy && <PrivacyPolicy onBack={() => setShowPrivacy(false)} />}
-      {showTerms && <TermsOfService onBack={() => setShowTerms(false)} />}
-      {showCookiePolicy && <CookiePolicy onBack={() => setShowCookiePolicy(false)} />}
-      {showDataManagement && <DataManagement onBack={() => setShowDataManagement(false)} />}
+      {/* Privacy Policy */}
+      {showPrivacy && (
+        <PrivacyPolicy onBack={() => setShowPrivacy(false)} />
+      )}
+
+      {/* Terms of Service */}
+      {showTerms && (
+        <TermsOfService onBack={() => setShowTerms(false)} />
+      )}
+
+      {/* Cookie Policy */}
+      {showCookiePolicy && (
+        <CookiePolicy onBack={() => setShowCookiePolicy(false)} />
+      )}
+
+      {/* Data Management */}
+      {showDataManagement && (
+        <DataManagement onBack={() => setShowDataManagement(false)} />
+      )}
+
+      {/* Age Verification */}
+      {showAgeVerification && (
+        <AgeVerification
+          onVerified={handleAgeVerified}
+          onRequireParentalConsent={handleParentalConsentRequired}
+        />
+      )}
+
+      {/* Parental Consent Form */}
+      {showParentalConsent && (
+        <ParentalConsentForm
+          onConsent={handleParentalConsent}
+          onCancel={() => setShowParentalConsent(false)}
+          childName={pendingUserData?.childName || ''}
+        />
+      )}
     </>
   );
 };
 
-export default App;
+export default RootApp;

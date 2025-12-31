@@ -1,6 +1,6 @@
 {
-  "name": "PresenzaCalcio - Gestione Squadra",
-  "short_name": "PresenzaCalcio",
+  "name": "Academy Hub - Gestione Squadra",
+  "short_name": "Academy Hub",
   "description": "Sistema professionale per gestione presenze, convocazioni e statistiche squadre calcio",
   "start_url": "/",
   "display": "standalone",

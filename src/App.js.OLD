@@ -1,44 +1,20 @@
 import React, { useState, useContext, createContext, useMemo, useCallback, useEffect } from 'react';
 import { SignedIn, SignedOut, SignIn, SignUp, UserButton, useUser } from '@clerk/clerk-react';
-import * as NotificationManager from './notificationManager';
-import InstallPrompt from './InstallPrompt';
-import { register as registerServiceWorker } from './serviceWorkerRegistration';
-import PrivacyPolicy from './PrivacyPolicy';
-import TermsOfService from './TermsOfService';
-import CookiePolicy from './CookiePolicy';
-import CookieBanner from './CookieBanner';
-import DataManagement from './DataManagement';
-import AgeVerification from './AgeVerification';
-import ParentalConsentForm from './ParentalConsentForm';
 
 // ===== API CLIENT =====
 const API_URL = '/api/db';
 
 const apiCall = async (method, body = null, query = '') => {
-  try {
-    const options = {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-    };
-    
-    if (body) options.body = JSON.stringify(body);
+  const options = {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+  };
+  
+  if (body) options.body = JSON.stringify(body);
 
-    const response = await fetch(`${API_URL}${query}`, options);
-    
-    if (!response.ok) {
-      throw new Error(`API Error: ${response.status} ${response.statusText}`);
-    }
-    
-    const contentType = response.headers.get('content-type');
-    if (!contentType || !contentType.includes('application/json')) {
-      throw new Error('Response is not JSON');
-    }
-    
-    return response.json();
-  } catch (error) {
-    console.error('API call failed:', error.message);
-    throw error;
-  }
+  const response = await fetch(`${API_URL}${query}`, options);
+  if (!response.ok) throw new Error(`API Error: ${response.statusText}`);
+  return response.json();
 };
 
 const api = {
@@ -231,7 +207,7 @@ const calculatePlayerStats = (player, events) => {
   let assenti = 0;
   
   playerEvents.forEach(event => {
-    const response = event.responses?.[player.id];
+    const response = event.responses[player.id];
     if (response) {
       if (response.status === 'presente') presenti++;
       else if (response.status === 'assente') assenti++;
@@ -323,7 +299,6 @@ const AppProvider = ({ children }) => {
         setEvents(data.events);
       } catch (error) {
         console.error('Errore caricamento:', error);
-        console.log('🔧 Impostazione dati demo...');
         // Fallback a dati iniziali
         const initialTeams = {
           team1: { id: 'team1', name: 'Prima Squadra', category: 'Seniores', color: colors.primary, icon: '⚽' },
@@ -340,9 +315,7 @@ const AppProvider = ({ children }) => {
         setTeams(initialTeams);
         setPlayers(initialPlayers);
         setEvents(initialEvents);
-        console.log('✅ Dati demo impostati:', { teams: initialTeams, players: initialPlayers, events: initialEvents });
       } finally {
-        console.log('🏁 setIsLoading(false)');
         setIsLoading(false);
       }
     };
@@ -388,21 +361,7 @@ const AppProvider = ({ children }) => {
   const addEvent = useCallback(async (event) => {
     await api.addEvent(event);
     setEvents(prev => [...prev, event]);
-    
-    // 🔔 NOTIFICHE: Notifica istantanea ai giocatori convocati
-    if (event.convocati && event.convocati.length > 0) {
-      const teamPlayers = players[event.teamId] || [];
-      const convocatedPlayers = teamPlayers.filter(p => event.convocati.includes(p.id));
-      
-      // Invia notifica istantanea
-      NotificationManager.notifyNewEvent(event, convocatedPlayers);
-      
-      // Schedula notifiche future (24h prima)
-      NotificationManager.scheduleEventNotifications(event, convocatedPlayers);
-      
-      console.log(`📬 Notifiche inviate a ${convocatedPlayers.length} giocatori`);
-    }
-  }, [players]);
+  }, []);
 
   const updateEvent = useCallback(async (eventId, updates) => {
     await api.updateEvent(eventId, updates);
@@ -419,7 +378,7 @@ const addEventResponse = useCallback(async (eventId, playerId, response) => {
   if (!event) return;
 
   const updatedResponses = {
-    ...(event.responses || {}),
+    ...event.responses,
     [playerId]: {
       status: response.status,
       note: response.note || '',
@@ -428,7 +387,7 @@ const addEventResponse = useCallback(async (eventId, playerId, response) => {
   };
 
   const updates = {
-    teamId: event.teamId,
+    teamId: event.team_id,
     type: event.type,
     title: event.title,
     date: event.date,
@@ -444,9 +403,7 @@ const addEventResponse = useCallback(async (eventId, playerId, response) => {
   
   const updatedEvent = { ...event, responses: updatedResponses };
   setEvents(prev => prev.map(e => e.id === eventId ? updatedEvent : e));
-  
-  // Notifica rimossa - L'allenatore vedrà le risposte nell'interfaccia
-}, [events, players]);
+}, [events]);
 
   const resetAllData = useCallback(async () => {
     const teamIds = Object.keys(teams);
@@ -472,9 +429,6 @@ const addEventResponse = useCallback(async (eventId, playerId, response) => {
       </div>
     );
   }
-
-  console.log('🎯 isLoading è false, rendering AppContext.Provider...');
-  console.log('📊 Dati disponibili:', { teamsCount: Object.keys(teams).length, playersCount: Object.keys(players).length, eventsCount: events.length });
 
   return <AppContext.Provider value={{
     teams,
@@ -791,7 +745,7 @@ const LoginScreen = ({ onLogin }) => {
         padding: '48px 20px',
       }}>
         <div style={{ fontSize: '64px', marginBottom: '16px' }}>⚽</div>
-        <div style={styles.headerTitle}>Academy Hub</div>
+        <div style={styles.headerTitle}>PresenzaCalcio</div>
         <div style={styles.headerSubtitle}>Sistema di Gestione Presenze Sportive</div>
       </div>
       <div style={styles.content}>
@@ -883,7 +837,7 @@ const Dashboard = ({ role, onNavigate, onLogout }) => {
                role === 'coach' ? '🎽 Dashboard Allenatore' :
                '⚽ Dashboard Giocatore'}
             </div>
-            <div style={styles.headerSubtitle}>Academy Hub</div>
+            <div style={styles.headerSubtitle}>PresenzaCalcio</div>
           </div>
           <Button title="Esci" onPress={onLogout} variant="outline" style={{ color: colors.white, borderColor: colors.white }} />
         </div>
@@ -1605,7 +1559,7 @@ const CreateEditEvent = ({ onNavigate, onBack, eventId = null }) => {
 };
 
 // ===== EVENT DETAIL =====
-const EventDetail = ({ onNavigate, onBack, eventId, currentRole }) => {
+const EventDetail = ({ onNavigate, onBack, eventId }) => {
   const { events, teams, players, deleteEvent, addEventResponse } = useAppContext();
   const { addNotification } = useNotification();
 
@@ -1614,15 +1568,6 @@ const EventDetail = ({ onNavigate, onBack, eventId, currentRole }) => {
   const teamPlayers = event ? players[event.teamId] || [] : [];
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-
-  // Verifica se l'appello è stato fatto
-  const attendanceTaken = NotificationManager.isAttendanceTaken(eventId);
-  
-  // Verifica se l'evento è oggi o nel passato (può fare appello)
-  const eventDate = event ? new Date(event.date) : null;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const canTakeAttendance = eventDate && eventDate <= today;
 
   if (!event) {
     return (
@@ -1712,16 +1657,6 @@ const EventDetail = ({ onNavigate, onBack, eventId, currentRole }) => {
           </div>
 
           <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-            {/* Bottone Fai Appello - Solo per Admin/Coach e solo se evento è oggi o passato */}
-            {(currentRole === 'admin' || currentRole === 'coach') && canTakeAttendance && (
-              <Button
-                title={attendanceTaken ? "📋 Vedi Appello" : "📋 Fai Appello"}
-                onPress={() => onNavigate('attendance', eventId)}
-                variant={attendanceTaken ? "success" : "primary"}
-                style={{ flex: 1 }}
-              />
-            )}
-            
             <Button
               title="📱 Invia su WhatsApp"
               onPress={handleSendWhatsApp}
@@ -1920,308 +1855,6 @@ const EventDetail = ({ onNavigate, onBack, eventId, currentRole }) => {
             </div>
           </div>
         )}
-      </div>
-    </div>
-  );
-};
-
-// ===== ATTENDANCE VIEW (APPELLO DAL VIVO) =====
-const AttendanceView = ({ onBack, eventId }) => {
-  const { events, teams, players } = useAppContext();
-  const { addNotification } = useNotification();
-  
-  const event = events.find(e => e.id === eventId);
-  const team = event ? teams[event.teamId] : null;
-  const teamPlayers = event ? players[event.teamId] || [] : [];
-  const convocatiList = teamPlayers.filter(p => event.convocati?.includes(p.id));
-  
-  // Carica appello esistente se presente
-  const existingAttendance = NotificationManager.getRealAttendance(eventId);
-  const [attendance, setAttendance] = useState(
-    existingAttendance?.attendanceData || {}
-  );
-  const [isCompleted, setIsCompleted] = useState(!!existingAttendance);
-
-  if (!event) {
-    return (
-      <div style={styles.container}>
-        <style>{animations}</style>
-        <div style={styles.content}>
-          <div style={styles.card}>
-            <div style={{ textAlign: 'center', padding: '48px' }}>
-              <div style={{ fontSize: '64px', marginBottom: '16px' }}>❌</div>
-              <div style={{ fontSize: '18px', marginBottom: '24px' }}>Evento non trovato</div>
-              <Button title="← Indietro" onPress={onBack} />
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  const handleAttendanceChange = (playerId, status) => {
-    setAttendance(prev => ({
-      ...prev,
-      [playerId]: status
-    }));
-  };
-
-  const handleSaveAttendance = () => {
-    // Salva l'appello
-    const savedData = NotificationManager.saveRealAttendance(eventId, attendance);
-    
-    // Calcola statistiche
-    const stats = {
-      present: Object.values(attendance).filter(s => s === 'presente').length,
-      absent: Object.values(attendance).filter(s => s === 'assente').length,
-      injured: Object.values(attendance).filter(s => s === 'infortunato').length,
-    };
-    
-    // Notifica completamento
-    NotificationManager.notifyAttendanceCompleted(event, stats);
-    
-    setIsCompleted(true);
-    addNotification('✅ Appello salvato con successo!', 'success');
-  };
-
-  const getPlayerStatus = (playerId) => {
-    return attendance[playerId] || null;
-  };
-
-  const stats = {
-    present: Object.values(attendance).filter(s => s === 'presente').length,
-    absent: Object.values(attendance).filter(s => s === 'assente').length,
-    injured: Object.values(attendance).filter(s => s === 'infortunato').length,
-    total: convocatiList.length,
-  };
-
-  // Confronto con presenze confermate
-  const comparison = NotificationManager.compareAttendance(eventId, convocatiList);
-
-  return (
-    <div style={styles.container}>
-      <style>{animations}</style>
-      <div style={styles.header}>
-        <div style={styles.headerContent}>
-          <div>
-            <div style={styles.headerTitle}>
-              📋 Appello: {event.title}
-            </div>
-            <div style={styles.headerSubtitle}>
-              {formatDateTime(event.date, event.time)}
-            </div>
-          </div>
-          <Button 
-            title="← Indietro" 
-            onPress={onBack} 
-            variant="outline" 
-            style={{ color: colors.white, borderColor: colors.white }} 
-          />
-        </div>
-      </div>
-
-      <div style={styles.content}>
-        {/* Statistiche Appello */}
-        <div style={styles.card}>
-          <h3 style={{ marginBottom: '16px', color: colors.primary }}>
-            📊 Statistiche Appello
-          </h3>
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
-            gap: '16px',
-          }}>
-            <div style={{ 
-              textAlign: 'center', 
-              padding: '16px', 
-              backgroundColor: colors.background, 
-              borderRadius: '8px' 
-            }}>
-              <div style={{ fontSize: '32px', fontWeight: '700', color: colors.success }}>
-                {stats.present}
-              </div>
-              <div style={{ fontSize: '14px', color: colors.gray }}>Presenti</div>
-            </div>
-            <div style={{ 
-              textAlign: 'center', 
-              padding: '16px', 
-              backgroundColor: colors.background, 
-              borderRadius: '8px' 
-            }}>
-              <div style={{ fontSize: '32px', fontWeight: '700', color: colors.danger }}>
-                {stats.absent}
-              </div>
-              <div style={{ fontSize: '14px', color: colors.gray }}>Assenti</div>
-            </div>
-            <div style={{ 
-              textAlign: 'center', 
-              padding: '16px', 
-              backgroundColor: colors.background, 
-              borderRadius: '8px' 
-            }}>
-              <div style={{ fontSize: '32px', fontWeight: '700', color: colors.warning }}>
-                {stats.injured}
-              </div>
-              <div style={{ fontSize: '14px', color: colors.gray }}>Infortunati</div>
-            </div>
-            <div style={{ 
-              textAlign: 'center', 
-              padding: '16px', 
-              backgroundColor: colors.background, 
-              borderRadius: '8px' 
-            }}>
-              <div style={{ fontSize: '32px', fontWeight: '700', color: colors.primary }}>
-                {stats.total}
-              </div>
-              <div style={{ fontSize: '14px', color: colors.gray }}>Totale</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Confronto con Conferme (se appello completato) */}
-        {isCompleted && comparison && (
-          <div style={styles.card}>
-            <h3 style={{ marginBottom: '16px', color: colors.primary }}>
-              🎯 Confronto Conferme vs Presenze Reali
-            </h3>
-            <div style={{ marginBottom: '16px' }}>
-              <div style={{ 
-                fontSize: '48px', 
-                fontWeight: '700', 
-                color: comparison.accuracy >= 80 ? colors.success : 
-                       comparison.accuracy >= 60 ? colors.warning : colors.danger,
-                textAlign: 'center',
-                marginBottom: '8px',
-              }}>
-                {comparison.accuracy}%
-              </div>
-              <div style={{ textAlign: 'center', color: colors.gray }}>
-                Precisione Conferme
-              </div>
-            </div>
-            
-            {comparison.confirmedButAbsent.length > 0 && (
-              <div style={{ marginBottom: '12px' }}>
-                <strong style={{ color: colors.danger }}>❌ Hanno confermato ma erano assenti:</strong>
-                <div style={{ marginTop: '8px', color: colors.gray }}>
-                  {comparison.confirmedButAbsent.join(', ')}
-                </div>
-              </div>
-            )}
-            
-            {comparison.notConfirmedButPresent.length > 0 && (
-              <div>
-                <strong style={{ color: colors.success }}>✅ Non hanno confermato ma erano presenti:</strong>
-                <div style={{ marginTop: '8px', color: colors.gray }}>
-                  {comparison.notConfirmedButPresent.join(', ')}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Lista Giocatori */}
-        <div style={styles.card}>
-          <h3 style={{ marginBottom: '16px', color: colors.primary }}>
-            👥 Lista Convocati ({convocatiList.length})
-          </h3>
-          
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {convocatiList.map((player) => {
-              const playerStatus = getPlayerStatus(player.id);
-              const confirmedStatus = event.responses?.[player.id]?.status;
-              
-              return (
-                <div 
-                  key={player.id}
-                  style={{
-                    padding: '16px',
-                    backgroundColor: colors.background,
-                    borderRadius: '8px',
-                    border: `2px solid ${
-                      playerStatus === 'presente' ? colors.success :
-                      playerStatus === 'assente' ? colors.danger :
-                      playerStatus === 'infortunato' ? colors.warning :
-                      colors.lightGray
-                    }`,
-                  }}
-                >
-                  <div style={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
-                    alignItems: 'center',
-                    marginBottom: '12px',
-                  }}>
-                    <div>
-                      <div style={{ fontWeight: '600', fontSize: '16px' }}>
-                        {player.name}
-                      </div>
-                      {confirmedStatus && (
-                        <div style={{ fontSize: '12px', color: colors.gray, marginTop: '4px' }}>
-                          Confermato: {
-                            confirmedStatus === 'presente' ? '✅ Presente' :
-                            confirmedStatus === 'assente' ? '❌ Assente' :
-                            '❓ Forse'
-                          }
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <Button
-                      title="✅ Presente"
-                      onPress={() => handleAttendanceChange(player.id, 'presente')}
-                      variant={playerStatus === 'presente' ? 'success' : 'outline'}
-                      style={{ flex: 1 }}
-                      disabled={isCompleted}
-                    />
-                    <Button
-                      title="❌ Assente"
-                      onPress={() => handleAttendanceChange(player.id, 'assente')}
-                      variant={playerStatus === 'assente' ? 'danger' : 'outline'}
-                      style={{ flex: 1 }}
-                      disabled={isCompleted}
-                    />
-                    <Button
-                      title="🤕 Infortunato"
-                      onPress={() => handleAttendanceChange(player.id, 'infortunato')}
-                      variant={playerStatus === 'infortunato' ? 'warning' : 'outline'}
-                      style={{ flex: 1 }}
-                      disabled={isCompleted}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {!isCompleted && (
-            <div style={{ marginTop: '24px' }}>
-              <Button
-                title="💾 Salva Appello"
-                onPress={handleSaveAttendance}
-                variant="primary"
-                disabled={Object.keys(attendance).length === 0}
-                style={{ width: '100%' }}
-              />
-            </div>
-          )}
-
-          {isCompleted && (
-            <div style={{ 
-              marginTop: '24px', 
-              padding: '16px', 
-              backgroundColor: colors.success + '20',
-              borderRadius: '8px',
-              textAlign: 'center',
-              color: colors.success,
-              fontWeight: '600',
-            }}>
-              ✅ Appello completato e salvato
-            </div>
-          )}
-        </div>
       </div>
     </div>
   );
@@ -3714,9 +3347,7 @@ const PlayerEvents = ({ onLogout }) => {
 };
 
 // ===== MAIN APP =====
-const MainApp = () => {
-  console.log('⚽ Componente MainApp renderizzato!');
-  
+const App = () => {
   const [currentScreen, setCurrentScreen] = useState('role-selection');  
   const [currentRole, setCurrentRole] = useState('');
   const [screenData, setScreenData] = useState(null);
@@ -3727,6 +3358,8 @@ const [pwaInstalled, setPwaInstalled] = useState(false);
   const [serviceWorkerReady, setServiceWorkerReady] = useState(false);
 
 // ===== PWA SERVICE WORKER =====
+  // TEMPORANEAMENTE DISABILITATO - Da riattivare quando aggiungeremo i file PWA
+  /*
   useEffect(() => {
     // Controlla se l'app è già installata
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
@@ -3757,12 +3390,8 @@ const [pwaInstalled, setPwaInstalled] = useState(false);
 
     // Richiedi permessi notifiche dopo 3 secondi
     const notificationTimer = setTimeout(() => {
-      NotificationManager.requestNotificationPermission().then(granted => {
+      requestNotificationPermission().then(granted => {
         setNotificationsEnabled(granted);
-        if (granted) {
-          // Invia notifica di test
-          NotificationManager.sendTestNotification();
-        }
       });
     }, 3000);
 
@@ -3779,6 +3408,7 @@ const [pwaInstalled, setPwaInstalled] = useState(false);
       window.removeEventListener('appinstalled', handleAppInstalled);
     };
   }, []);
+  */
 
   const handleLogin = (role) => {
     setCurrentRole(role);
@@ -3837,183 +3467,72 @@ const [pwaInstalled, setPwaInstalled] = useState(false);
         <CreateEditEvent onNavigate={handleNavigate} onBack={handleBack} eventId={screenData} />
       )}
       {currentScreen === 'event-detail' && (
-        <EventDetail onNavigate={handleNavigate} onBack={handleBack} eventId={screenData} currentRole={currentRole} />
-      )}
-      {currentScreen === 'attendance' && (
-        <AttendanceView onBack={handleBack} eventId={screenData} />
+        <EventDetail onNavigate={handleNavigate} onBack={handleBack} eventId={screenData} />
       )}
       {currentScreen === 'my-events' && (
         <PlayerEvents onLogout={handleLogout} />
       )}
-      {!pwaInstalled && <InstallPrompt />}
+      {/* TEMPORANEAMENTE DISABILITATO - InstallPrompt verrà riattivato con i file PWA */}
+      {/* {!pwaInstalled && <InstallPrompt />} */}
     </>
   );
 };
 
-// Componente Root che deregistra il Service Worker vecchio
-const App = () => {
-  console.log('🚀 Componente App principale renderizzato!');
-  
-  const { isLoaded: clerkLoaded, isSignedIn } = useUser();
-  
-  const [showPrivacy, setShowPrivacy] = useState(false);
-  const [showTerms, setShowTerms] = useState(false);
-  const [showCookiePolicy, setShowCookiePolicy] = useState(false);
-  const [showDataManagement, setShowDataManagement] = useState(false);
-
-  // Deregistra Service Worker all'avvio per evitare problemi di cache
-  useEffect(() => {
-    console.log('🔧 useEffect di pulizia Service Worker attivato');
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(function(registrations) {
-        for (let registration of registrations) {
-          registration.unregister().then(function(success) {
-            if (success) {
-              console.log('✅ Service Worker vecchio deregistrato');
-            }
-          });
-        }
-      });
-      
-      // Pulisci anche la cache
-      if ('caches' in window) {
-        caches.keys().then(function(names) {
-          for (let name of names) {
-            caches.delete(name);
-            console.log('🗑️ Cache pulita:', name);
-          }
-        });
-      }
-    }
-  }, []);
-
-  // Loading screen mentre Clerk carica
-  if (!clerkLoaded) {
-    console.log('⏳ Clerk sta caricando...');
-    return (
-      <div style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryDark} 100%)`,
-      }}>
-        <div style={{ textAlign: 'center', color: colors.white }}>
-          <div style={{ fontSize: '64px', marginBottom: '16px' }}>⚽</div>
-          <div style={{ fontSize: '18px' }}>Caricamento autenticazione...</div>
+export default () => (
+  <NotificationProvider>
+    <AppProvider>
+      <SignedOut>
+        <div style={{
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryDark} 100%)`,
+        }}>
+         <div style={{
+  backgroundColor: colors.white,
+  padding: '60px 50px',
+  borderRadius: '24px',
+  boxShadow: '0 25px 70px rgba(0,0,0,0.25)',
+  textAlign: 'center',
+  maxWidth: '480px',
+  width: '92%',
+  margin: '0 auto',
+}}>
+            <div style={{ fontSize: '80px', marginBottom: '24px' }}>⚽</div>
+            <h1 style={{ 
+              marginBottom: '12px', 
+              color: colors.primary,
+              fontSize: '32px',
+              fontWeight: 'bold',
+            }}>PresenzaCalcio</h1>
+            <p style={{ 
+              marginBottom: '40px', 
+              color: colors.gray,
+              fontSize: '16px',
+            }}>
+              Sistema di Gestione Presenze Sportive
+            </p>
+            <SignIn 
+              routing="hash"
+              appearance={{
+                elements: {
+                  rootBox: {
+                    width: '100%',
+                  },
+                  card: {
+                    boxShadow: 'none',
+                    padding: 0,
+                  },
+                },
+              }}
+            />
+          </div>
         </div>
-      </div>
-    );
-  }
-
-  console.log('✅ Clerk caricato! isSignedIn:', isSignedIn);
-
-  return (
-    <>
-      {console.log('📍 Rendering return dell\'App principale...')}
-      <NotificationProvider>
-        <AppProvider>
-          {!isSignedIn ? (
-            // Utente NON loggato - mostra schermata login
-            <>
-              {console.log('🔓 Mostrando schermata login - Utente NON loggato')}
-              <div style={{
-                minHeight: '100vh',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryDark} 100%)`,
-              }}>
-               <div style={{
-        backgroundColor: colors.white,
-        padding: '60px 50px',
-        borderRadius: '24px',
-        boxShadow: '0 25px 70px rgba(0,0,0,0.25)',
-        textAlign: 'center',
-        maxWidth: '480px',
-        width: '92%',
-        margin: '0 auto',
-      }}>
-                  <div style={{ fontSize: '80px', marginBottom: '24px' }}>⚽</div>
-                  <h1 style={{ 
-                    marginBottom: '12px', 
-                    color: colors.primary,
-                    fontSize: '32px',
-                    fontWeight: 'bold',
-                  }}>Academy Hub</h1>
-                  <p style={{ 
-                    marginBottom: '40px', 
-                    color: colors.gray,
-                    fontSize: '16px',
-                  }}>
-                    Sistema di Gestione Presenze Sportive
-                  </p>
-                  <SignIn 
-                    routing="hash"
-                    appearance={{
-                      elements: {
-                        rootBox: {
-                          width: '100%',
-                        },
-                        card: {
-                          boxShadow: 'none',
-                          padding: 0,
-                        },
-                      },
-                    }}
-                  />
-                </div>
-              </div>
-            </>
-          ) : (
-            // Utente loggato - mostra app principale
-            <>
-              {console.log('🔐 Mostrando app principale - Utente loggato')}
-              <MainApp />
-            </>
-          )}
-        </AppProvider>
-      </NotificationProvider>
-
-      {/* GDPR Footer */}
-      <div style={{
-        backgroundColor: '#1a1a1a',
-        color: '#999',
-        padding: '20px',
-        textAlign: 'center',
-        fontSize: '13px',
-        borderTop: '1px solid #333',
-        marginTop: '40px'
-      }}>
-        <div style={{ marginBottom: '12px' }}>
-          <button onClick={() => setShowPrivacy(true)} style={{ background: 'none', border: 'none', color: '#64b5f6', cursor: 'pointer', textDecoration: 'underline', margin: '0 12px', fontSize: '13px' }}>
-            Privacy Policy
-          </button>
-          <button onClick={() => setShowTerms(true)} style={{ background: 'none', border: 'none', color: '#64b5f6', cursor: 'pointer', textDecoration: 'underline', margin: '0 12px', fontSize: '13px' }}>
-            Termini e Condizioni
-          </button>
-          <button onClick={() => setShowCookiePolicy(true)} style={{ background: 'none', border: 'none', color: '#64b5f6', cursor: 'pointer', textDecoration: 'underline', margin: '0 12px', fontSize: '13px' }}>
-            Cookie Policy
-          </button>
-          <button onClick={() => setShowDataManagement(true)} style={{ background: 'none', border: 'none', color: '#64b5f6', cursor: 'pointer', textDecoration: 'underline', margin: '0 12px', fontSize: '13px' }}>
-            Gestisci i miei dati
-          </button>
-        </div>
-        <div style={{ fontSize: '12px', opacity: 0.7 }}>
-          © 2025 Academy Hub - Conforme GDPR (UE 2016/679)
-        </div>
-      </div>
-
-      {/* Cookie Banner */}
-      <CookieBanner />
-
-      {/* GDPR Modals */}
-      {showPrivacy && <PrivacyPolicy onBack={() => setShowPrivacy(false)} />}
-      {showTerms && <TermsOfService onBack={() => setShowTerms(false)} />}
-      {showCookiePolicy && <CookiePolicy onBack={() => setShowCookiePolicy(false)} />}
-      {showDataManagement && <DataManagement onBack={() => setShowDataManagement(false)} />}
-    </>
-  );
-};
-
-export default App;
+      </SignedOut>
+      <SignedIn>
+        <App />
+      </SignedIn>
+    </AppProvider>
+  </NotificationProvider>
+);
