@@ -3720,7 +3720,56 @@ const MainApp = () => {
   const [currentScreen, setCurrentScreen] = useState('role-selection');  
   const [currentRole, setCurrentRole] = useState('');
   const [screenData, setScreenData] = useState(null);
+// Nuovi stati per controllo ruoli
+const [userRoleStatus, setUserRoleStatus] = useState('checking'); 
+const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+const [userRoleData, setUserRoleData] = useState(null);
+const { user } = useUser(); // Hook Clerk per ottenere dati utente
+// Controllo ruolo utente al login
+useEffect(() => {
+  const checkUserRole = async () => {
+    if (!user?.primaryEmailAddress?.emailAddress) {
+      setIsCheckingAuth(false);
+      return;
+    }
 
+    const userEmail = user.primaryEmailAddress.emailAddress;
+    console.log('🔍 Controllo ruolo per:', userEmail);
+
+    try {
+      // Query al database user_roles
+      const response = await fetch('/api/db?table=user_roles&email=' + encodeURIComponent(userEmail));
+      const data = await response.json();
+
+      if (data.user_roles && data.user_roles.length > 0) {
+        const roleData = data.user_roles[0];
+        
+        // Controlla il ruolo
+        if (['admin', 'coach', 'player'].includes(roleData.role)) {
+          console.log('✅ Utente autorizzato:', roleData.role);
+          setUserRoleData(roleData);
+          setUserRoleStatus('authorized');
+          setCurrentRole(roleData.role);
+        } else {
+          console.log('⏳ Utente in attesa di approvazione');
+          setUserRoleStatus('pending');
+        }
+      } else {
+        console.log('❌ Utente non trovato nel database');
+        setUserRoleStatus('pending');
+      }
+    } catch (error) {
+      console.error('❌ Errore controllo ruolo:', error);
+      setUserRoleStatus('unauthorized');
+    } finally {
+      setIsCheckingAuth(false);
+    }
+  };
+
+  if (user) {
+    checkUserRole();
+  }
+}, [user]);
 
 const [pwaInstalled, setPwaInstalled] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
@@ -3779,17 +3828,115 @@ const [pwaInstalled, setPwaInstalled] = useState(false);
       window.removeEventListener('appinstalled', handleAppInstalled);
     };
   }, []);
+  // Loading screen durante controllo autorizzazione
+if (isCheckingAuth) {
+  return (
+    <div style={{
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.background,
+    }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ fontSize: '64px', marginBottom: '16px' }}>🔐</div>
+        <div style={{ fontSize: '18px', color: colors.primary }}>Verifica autorizzazione...</div>
+      </div>
+    </div>
+  );
+}
 
-  const handleLogin = (role) => {
-    setCurrentRole(role);
-    if (role === 'player') {
-      // Il giocatore va direttamente alle sue convocazioni
-      setCurrentScreen('my-events');
-    } else {
-      // Admin e Coach vanno alla dashboard
-      setCurrentScreen('dashboard');
-    }
-  };
+// Schermata "In attesa di approvazione"
+if (userRoleStatus === 'pending') {
+  return (
+    <div style={styles.container}>
+      <style>{animations}</style>
+      <div style={{
+        ...styles.header,
+        background: `linear-gradient(135deg, ${colors.warning} 0%, ${colors.accent} 100%)`,
+      }}>
+        <div style={styles.headerContent}>
+          <div>
+            <div style={styles.headerTitle}>⏳ Account in Attesa</div>
+            <div style={styles.headerSubtitle}>Academy Hub</div>
+          </div>
+          <UserButton />
+        </div>
+      </div>
+      <div style={styles.content}>
+        <div style={{
+          ...styles.card,
+          maxWidth: '600px',
+          margin: '40px auto',
+          textAlign: 'center',
+        }}>
+          <div style={{ fontSize: '80px', marginBottom: '24px' }}>⏳</div>
+          <h2 style={{ marginBottom: '16px', color: colors.warning }}>
+            Account in Attesa di Approvazione
+          </h2>
+          <p style={{ fontSize: '16px', color: colors.gray, marginBottom: '24px' }}>
+            Il tuo account è stato creato con successo, ma è in attesa di approvazione 
+            da parte di un amministratore.
+          </p>
+          <div style={{
+            padding: '20px',
+            backgroundColor: colors.background,
+            borderRadius: '12px',
+            marginBottom: '24px',
+          }}>
+            <div style={{ fontSize: '14px', color: colors.gray }}>
+              <strong>Email registrata:</strong><br/>
+              {user?.primaryEmailAddress?.emailAddress}
+            </div>
+          </div>
+          <p style={{ fontSize: '14px', color: colors.gray }}>
+            Riceverai una notifica via email quando il tuo account verrà attivato.
+            <br/><br/>
+            Per informazioni, contatta gli amministratori.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Schermata errore autorizzazione
+if (userRoleStatus === 'unauthorized') {
+  return (
+    <div style={styles.container}>
+      <style>{animations}</style>
+      <div style={styles.content}>
+        <div style={{
+          ...styles.card,
+          maxWidth: '600px',
+          margin: '40px auto',
+          textAlign: 'center',
+        }}>
+          <div style={{ fontSize: '80px', marginBottom: '24px' }}>❌</div>
+          <h2 style={{ marginBottom: '16px', color: colors.danger }}>
+            Errore di Autenticazione
+          </h2>
+          <p style={{ fontSize: '16px', color: colors.gray, marginBottom: '24px' }}>
+            Si è verificato un errore durante la verifica delle tue credenziali.
+          </p>
+          <Button
+            title="Riprova"
+            onPress={() => window.location.reload()}
+            variant="primary"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+const handleLogin = () => {
+  // Usa il ruolo dal database (già impostato da useEffect)
+  if (currentRole === 'player') {
+    setCurrentScreen('my-events');
+  } else {
+    setCurrentScreen('dashboard');
+  }
+};
 
   const handleLogout = () => {
     setCurrentRole('');
@@ -3809,8 +3956,36 @@ const [pwaInstalled, setPwaInstalled] = useState(false);
 
   return (
     <>
-      {currentScreen === 'role-selection' && (
-  <LoginScreen onLogin={handleLogin} />
+ {currentScreen === 'role-selection' && userRoleStatus === 'authorized' && (
+  <div style={styles.container}>
+    <style>{animations}</style>
+    <div style={{
+      ...styles.header,
+      textAlign: 'center',
+      padding: '48px 20px',
+    }}>
+      <div style={{ fontSize: '64px', marginBottom: '16px' }}>⚽</div>
+      <div style={styles.headerTitle}>Academy Hub</div>
+      <div style={styles.headerSubtitle}>Benvenuto/a, {user?.firstName || 'Utente'}!</div>
+    </div>
+    <div style={styles.content}>
+      <div style={{
+        ...styles.card,
+        maxWidth: '600px',
+        margin: '0 auto',
+        textAlign: 'center',
+      }}>
+        <h2 style={{ marginBottom: '24px', color: colors.primary }}>
+          Accesso come {currentRole === 'admin' ? '👔 Amministratore' : currentRole === 'coach' ? '🎽 Allenatore' : '⚽ Giocatore'}
+        </h2>
+        <Button
+          title="Accedi all'App"
+          onPress={handleLogin}
+          style={{ width: '100%', padding: '16px' }}
+        />
+      </div>
+    </div>
+  </div>
 )}
       {currentScreen === 'dashboard' && (
         <Dashboard role={currentRole} onNavigate={handleNavigate} onLogout={handleLogout} />
