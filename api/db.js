@@ -170,6 +170,12 @@ if (table === 'user_roles') {
       }
     }
 if (action === 'update_user_role') {
+  // Verifica che non si stia modificando il super admin
+  const user = await queryD1('SELECT email FROM user_roles WHERE id = ?', [id]);
+  if (user[0]?.email === 'giovannibuoli@gmail.com') {
+    return res.status(403).json({ error: 'Super Admin non può essere modificato' });
+  }
+  
   await queryD1(
     'UPDATE user_roles SET role = ?, approved_by = ?, updated_at = ? WHERE id = ?',
     [data.role, data.approved_by, data.updated_at, id]
@@ -178,6 +184,12 @@ if (action === 'update_user_role') {
 }
 
 if (action === 'delete_user_role') {
+  // Verifica che non si stia eliminando il super admin
+  const user = await queryD1('SELECT email FROM user_roles WHERE id = ?', [id]);
+  if (user[0]?.email === 'giovannibuoli@gmail.com') {
+    return res.status(403).json({ error: 'Super Admin non può essere eliminato' });
+  }
+  
   await queryD1('DELETE FROM user_roles WHERE id = ?', [id]);
   return res.json({ success: true });
 }

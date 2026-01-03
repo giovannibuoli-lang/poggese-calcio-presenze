@@ -3505,23 +3505,39 @@ const UsersList = ({ onBack }) => {
                       </div>
                     )}
 
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <Button
-                        title="✏️ Modifica"
-                        onPress={() => {
-                          setSelectedUser(user);
-                          setNewRole(user.role);
-                        }}
-                        variant="secondary"
-                        style={{ flex: 1, padding: '10px' }}
-                      />
-                      <Button
-                        title="🗑️"
-                        onPress={() => handleDeleteUser(user.id)}
-                        variant="danger"
-                        style={{ padding: '10px' }}
-                      />
-                    </div>
+                   <div style={{ display: 'flex', gap: '8px' }}>
+  {user.email !== 'giovannibuoli@gmail.com' ? (
+    <>
+      <Button
+        title="✏️ Modifica"
+        onPress={() => {
+          setSelectedUser(user);
+          setNewRole(user.role);
+        }}
+        variant="secondary"
+        style={{ flex: 1, padding: '10px' }}
+      />
+      <Button
+        title="🗑️"
+        onPress={() => handleDeleteUser(user.id)}
+        variant="danger"
+        style={{ padding: '10px' }}
+      />
+    </>
+  ) : (
+    <div style={{
+      padding: '10px',
+      backgroundColor: `${colors.primary}20`,
+      borderRadius: '8px',
+      textAlign: 'center',
+      color: colors.primary,
+      fontWeight: '600',
+      fontSize: '14px',
+    }}>
+      👑 Super Admin - Protetto
+    </div>
+  )}
+</div> 
                   </div>
                 );
               })}
