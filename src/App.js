@@ -4221,35 +4221,18 @@ const handleLogin = () => {
 
   return (
     <>
- {currentScreen === 'role-selection' && userRoleStatus === 'authorized' && (
-  <div style={styles.container}>
-    <style>{animations}</style>
-    <div style={{
-      ...styles.header,
-      textAlign: 'center',
-      padding: '48px 20px',
-    }}>
-      <div style={{ fontSize: '64px', marginBottom: '16px' }}>⚽</div>
-      <div style={styles.headerTitle}>Academy Hub</div>
-      <div style={styles.headerSubtitle}>Benvenuto/a, {user?.firstName || 'Utente'}!</div>
-    </div>
-    <div style={styles.content}>
-      <div style={{
-        ...styles.card,
-        maxWidth: '600px',
-        margin: '0 auto',
-        textAlign: 'center',
-      }}>
-        <h2 style={{ marginBottom: '24px', color: colors.primary }}>
-          Accesso come {currentRole === 'admin' ? '👔 Amministratore' : currentRole === 'coach' ? '🎽 Allenatore' : '⚽ Giocatore'}
-        </h2>
-        <Button
-          title="Accedi all'App"
-          onPress={handleLogin}
-          style={{ width: '100%', padding: '16px' }}
-        />
-      </div>
-    </div>
+{currentScreen === 'role-selection' && userRoleStatus === 'authorized' && (
+  <div>
+    {/* Auto-redirect quando autorizzato */}
+    {(() => {
+      // Redirect automatico basato sul ruolo
+      if (currentRole === 'player') {
+        setCurrentScreen('my-events');
+      } else {
+        setCurrentScreen('dashboard');
+      }
+      return null;
+    })()}
   </div>
 )}
       {currentScreen === 'dashboard' && (
