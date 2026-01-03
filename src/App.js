@@ -1074,6 +1074,12 @@ const Dashboard = ({ role, onNavigate, onLogout }) => {
               />
             </>
           )}
+         <Button
+  title="👤 Gestisci Utenti"
+  onPress={() => onNavigate('users')}
+  variant="secondary"
+  style={{ padding: '20px', fontSize: '16px' }}
+/> 
         </div>
         
         {/* Pulsante Reset Dati (solo Admin) */}
@@ -3326,7 +3332,266 @@ const PlayersList = ({ onNavigate, onBack }) => {
     </div>
   );
 };
+// ===== USERS MANAGEMENT (ADMIN ONLY) =====
+const UsersList = ({ onBack }) => {
+  const { addNotification } = useNotification();
+  const [users, setUsers] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [newRole, setNewRole] = useState('');
 
+  // Carica utenti dal database
+  useEffect(() => {
+    const loadUsers = async () => {
+      try {
+        setIsLoading(true);
+        const response = await fetch('/api/db?table=user_roles');
+        const data = await response.json();
+        setUsers(data.user_roles || []);
+      } catch (error) {
+        console.error('Errore caricamento utenti:', error);
+        addNotification('Errore caricamento utenti', 'error');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadUsers();
+  }, []);
+
+  // Approva/Modifica ruolo utente
+  const handleUpdateRole = async (userId, role) => {
+    try {
+      const response = await fetch('/api/db', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'update_user_role',
+          id: userId,
+          data: { role, approved_by: 'admin', updated_at: new Date().toISOString() }
+        })
+      });
+
+      if (response.ok) {
+        // Aggiorna la lista locale
+        setUsers(prev => prev.map(u => 
+          u.id === userId ? { ...u, role, approved_by: 'admin' } : u
+        ));
+        addNotification('Ruolo aggiornato con successo', 'success');
+        setSelectedUser(null);
+        setNewRole('');
+      } else {
+        addNotification('Errore aggiornamento ruolo', 'error');
+      }
+    } catch (error) {
+      console.error('Errore:', error);
+      addNotification('Errore aggiornamento ruolo', 'error');
+    }
+  };
+
+  // Elimina utente
+  const handleDeleteUser = async (userId) => {
+    if (!window.confirm('Sei sicuro di voler eliminare questo utente?')) return;
+
+    try {
+      const response = await fetch('/api/db', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'delete_user_role',
+          id: userId
+        })
+      });
+
+      if (response.ok) {
+        setUsers(prev => prev.filter(u => u.id !== userId));
+        addNotification('Utente eliminato', 'success');
+      } else {
+        addNotification('Errore eliminazione utente', 'error');
+      }
+    } catch (error) {
+      console.error('Errore:', error);
+      addNotification('Errore eliminazione utente', 'error');
+    }
+  };
+
+  const getRoleBadge = (role) => {
+    switch(role) {
+      case 'admin': return { text: '👔 Admin', variant: 'danger' };
+      case 'coach': return { text: '🎽 Allenatore', variant: 'primary' };
+      case 'player': return { text: '⚽ Giocatore', variant: 'success' };
+      default: return { text: '⏳ In Attesa', variant: 'warning' };
+    }
+  };
+
+  return (
+    <div style={styles.container}>
+      <style>{animations}</style>
+      <div style={styles.header}>
+        <div style={styles.headerContent}>
+          <div>
+            <div style={styles.headerTitle}>👤 Gestione Utenti</div>
+            <div style={styles.headerSubtitle}>Approva e gestisci gli accessi</div>
+          </div>
+          <Button title="← Indietro" onPress={onBack} variant="outline" style={{ color: colors.white, borderColor: colors.white }} />
+        </div>
+      </div>
+
+      <div style={styles.content}>
+        {isLoading ? (
+          <div style={styles.card}>
+            <div style={{ textAlign: 'center', padding: '48px' }}>
+              <div style={{ fontSize: '64px', marginBottom: '16px' }}>⏳</div>
+              <div style={{ fontSize: '18px' }}>Caricamento utenti...</div>
+            </div>
+          </div>
+        ) : users.length === 0 ? (
+          <div style={styles.card}>
+            <div style={{ textAlign: 'center', padding: '48px', color: colors.gray }}>
+              <div style={{ fontSize: '64px', marginBottom: '16px' }}>👤</div>
+              <div style={{ fontSize: '18px' }}>Nessun utente registrato</div>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Statistiche */}
+            <div style={styles.card}>
+              <h3 style={{ marginBottom: '16px', color: colors.primary }}>📊 Riepilogo</h3>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '16px' }}>
+                <div style={{ textAlign: 'center', padding: '16px', backgroundColor: colors.background, borderRadius: '8px' }}>
+                  <div style={{ fontSize: '32px', fontWeight: '700', color: colors.danger }}>
+                    {users.filter(u => u.role === 'admin').length}
+                  </div>
+                  <div style={{ fontSize: '14px', color: colors.gray }}>Admin</div>
+                </div>
+                <div style={{ textAlign: 'center', padding: '16px', backgroundColor: colors.background, borderRadius: '8px' }}>
+                  <div style={{ fontSize: '32px', fontWeight: '700', color: colors.primary }}>
+                    {users.filter(u => u.role === 'coach').length}
+                  </div>
+                  <div style={{ fontSize: '14px', color: colors.gray }}>Allenatori</div>
+                </div>
+                <div style={{ textAlign: 'center', padding: '16px', backgroundColor: colors.background, borderRadius: '8px' }}>
+                  <div style={{ fontSize: '32px', fontWeight: '700', color: colors.success }}>
+                    {users.filter(u => u.role === 'player').length}
+                  </div>
+                  <div style={{ fontSize: '14px', color: colors.gray }}>Giocatori</div>
+                </div>
+                <div style={{ textAlign: 'center', padding: '16px', backgroundColor: colors.background, borderRadius: '8px' }}>
+                  <div style={{ fontSize: '32px', fontWeight: '700', color: colors.warning }}>
+                    {users.filter(u => u.role === 'pending').length}
+                  </div>
+                  <div style={{ fontSize: '14px', color: colors.gray }}>In Attesa</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Lista Utenti */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
+              {users.map(user => {
+                const badge = getRoleBadge(user.role);
+                return (
+                  <div key={user.id} style={styles.card}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '16px' }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '16px', fontWeight: '700', marginBottom: '8px', wordBreak: 'break-all' }}>
+                          {user.email}
+                        </div>
+                        <Badge text={badge.text} variant={badge.variant} />
+                      </div>
+                    </div>
+
+                    {user.approved_by && (
+                      <div style={{ fontSize: '12px', color: colors.gray, marginBottom: '16px' }}>
+                        ✅ Approvato da: {user.approved_by}
+                      </div>
+                    )}
+
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <Button
+                        title="✏️ Modifica"
+                        onPress={() => {
+                          setSelectedUser(user);
+                          setNewRole(user.role);
+                        }}
+                        variant="secondary"
+                        style={{ flex: 1, padding: '10px' }}
+                      />
+                      <Button
+                        title="🗑️"
+                        onPress={() => handleDeleteUser(user.id)}
+                        variant="danger"
+                        style={{ padding: '10px' }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+
+        {/* Modal Modifica Ruolo */}
+        {selectedUser && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+          }}>
+            <div style={{
+              ...styles.card,
+              maxWidth: '500px',
+              margin: '20px',
+            }}>
+              <h3 style={{ marginBottom: '16px', color: colors.primary }}>
+                ✏️ Modifica Ruolo Utente
+              </h3>
+              <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: colors.background, borderRadius: '8px' }}>
+                <strong>Email:</strong><br/>
+                <span style={{ fontSize: '14px', wordBreak: 'break-all' }}>{selectedUser.email}</span>
+              </div>
+
+              <Select
+                label="Ruolo"
+                value={newRole}
+                onChange={setNewRole}
+                options={[
+                  { value: 'admin', label: '👔 Amministratore' },
+                  { value: 'coach', label: '🎽 Allenatore' },
+                  { value: 'player', label: '⚽ Giocatore' },
+                  { value: 'pending', label: '⏳ In Attesa' },
+                ]}
+              />
+
+              <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
+                <Button
+                  title="💾 Salva"
+                  onPress={() => handleUpdateRole(selectedUser.id, newRole)}
+                  variant="success"
+                  style={{ flex: 1 }}
+                />
+                <Button
+                  title="Annulla"
+                  onPress={() => {
+                    setSelectedUser(null);
+                    setNewRole('');
+                  }}
+                  variant="outline"
+                  style={{ flex: 1 }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 // ===== PLAYER EVENTS (convocazioni per giocatore) =====
 const PlayerEvents = ({ onLogout }) => {
   const { events, teams, players, addEventResponse } = useAppContext();
@@ -4002,6 +4267,9 @@ const handleLogin = () => {
       {currentScreen === 'players' && (
         <PlayersList onNavigate={handleNavigate} onBack={handleBack} />
       )}
+      {currentScreen === 'users' && (
+  <UsersList onBack={handleBack} />
+)}
       {currentScreen === 'events' && (
         <EventsList onNavigate={handleNavigate} onBack={handleBack} />
       )}

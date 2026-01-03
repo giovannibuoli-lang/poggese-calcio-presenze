@@ -61,7 +61,18 @@ if (table === 'events') {
   }));
   return res.json({ events: parsedEvents });
 }
-
+if (table === 'user_roles') {
+  const { email } = req.query;
+  if (email) {
+    // Cerca utente specifico per email
+    const user = await queryD1('SELECT * FROM user_roles WHERE email = ?', [email]);
+    return res.json({ user_roles: user });
+  } else {
+    // Ritorna tutti gli utenti
+    const users = await queryD1('SELECT * FROM user_roles ORDER BY created_at DESC');
+    return res.json({ user_roles: users });
+  }
+}
       return res.json({ teams: [], players: [], events: [] });
     }
 
@@ -158,7 +169,18 @@ if (table === 'events') {
         return res.json({ success: true });
       }
     }
+if (action === 'update_user_role') {
+  await queryD1(
+    'UPDATE user_roles SET role = ?, approved_by = ?, updated_at = ? WHERE id = ?',
+    [data.role, data.approved_by, data.updated_at, id]
+  );
+  return res.json({ success: true });
+}
 
+if (action === 'delete_user_role') {
+  await queryD1('DELETE FROM user_roles WHERE id = ?', [id]);
+  return res.json({ success: true });
+}
     return res.status(400).json({ error: 'Invalid request' });
   } catch (error) {
     console.error('API Error:', error);
