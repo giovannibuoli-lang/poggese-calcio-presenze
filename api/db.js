@@ -193,6 +193,13 @@ if (action === 'delete_user_role') {
   await queryD1('DELETE FROM user_roles WHERE id = ?', [id]);
   return res.json({ success: true });
 }
+if (action === 'create_invited_user') {
+  await queryD1(
+    'INSERT INTO user_roles (id, user_id, email, role, approved_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [data.id, data.id, data.email, data.role, data.approved_by, data.created_at, data.updated_at]
+  );
+  return res.json({ success: true });
+}
     return res.status(400).json({ error: 'Invalid request' });
   } catch (error) {
     console.error('API Error:', error);

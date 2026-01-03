@@ -3339,7 +3339,10 @@ const UsersList = ({ onBack }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState(null);
   const [newRole, setNewRole] = useState('');
-
+const [showInviteModal, setShowInviteModal] = useState(false);
+const [inviteData, setInviteData] = useState({ email: '', name: '', role: 'player' });
+const [generatedInvite, setGeneratedInvite] = useState('');
+const [showInviteMessage, setShowInviteMessage] = useState(false);
   // Carica utenti dal database
   useEffect(() => {
     const loadUsers = async () => {
@@ -3413,7 +3416,72 @@ const UsersList = ({ onBack }) => {
       addNotification('Errore eliminazione utente', 'error');
     }
   };
+// Crea nuovo utente e genera invito
+const handleCreateInvite = async () => {
+  if (!inviteData.email || !inviteData.name) {
+    addNotification('Compila tutti i campi', 'error');
+    return;
+  }
 
+  try {
+    const response = await fetch('/api/db', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'create_invited_user',
+        data: {
+          id: `usr_${Date.now()}`,
+          email: inviteData.email,
+          role: inviteData.role,
+          approved_by: 'admin',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }
+      })
+    });
+
+    if (response.ok) {
+      const roleText = inviteData.role === 'admin' ? 'Amministratore' : 
+                       inviteData.role === 'coach' ? 'Allenatore' : 'Giocatore';
+      const roleEmoji = inviteData.role === 'admin' ? '👔' : 
+                        inviteData.role === 'coach' ? '🎽' : '⚽';
+      
+      const message = `🎉 *Sei stato invitato su Academy Hub!*
+
+👋 Ciao ${inviteData.name}!
+
+Sei stato aggiunto come *${roleEmoji} ${roleText}* nell'app Academy Hub - Sistema di Gestione Presenze Sportive.
+
+📱 *Per accedere:*
+1. Clicca qui: https://calcio-presenze.vercel.app
+2. Registrati usando questa email: *${inviteData.email}*
+3. Il tuo account è già autorizzato!
+
+⚽ *Academy Hub*
+Sistema Gestione Presenze Sportive`;
+
+      setGeneratedInvite(message);
+      setShowInviteMessage(true);
+      setShowInviteModal(false);
+      
+      const updatedUsers = await fetch('/api/db?table=user_roles');
+      const data = await updatedUsers.json();
+      setUsers(data.user_roles || []);
+      
+      addNotification('Invito creato con successo!', 'success');
+    } else {
+      addNotification('Errore creazione invito', 'error');
+    }
+  } catch (error) {
+    console.error('Errore:', error);
+    addNotification('Errore creazione invito', 'error');
+  }
+};
+
+const handleCopyInvite = () => {
+  navigator.clipboard.writeText(generatedInvite);
+  addNotification('Invito copiato! Invialo via WhatsApp/Email', 'success');
+};
   const getRoleBadge = (role) => {
     switch(role) {
       case 'admin': return { text: '👔 Admin', variant: 'danger' };
@@ -3485,6 +3553,16 @@ const UsersList = ({ onBack }) => {
             </div>
 
             {/* Lista Utenti */}
+            {/* Pulsante Invita */}
+<Button
+  title="➕ Invita Nuovo Utente"
+  onPress={() => {
+    setInviteData({ email: '', name: '', role: 'player' });
+    setShowInviteModal(true);
+  }}
+  variant="success"
+  style={{ marginBottom: '24px', width: '100%', padding: '16px' }}
+/>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
               {users.map(user => {
                 const badge = getRoleBadge(user.role);
@@ -3604,6 +3682,146 @@ const UsersList = ({ onBack }) => {
             </div>
           </div>
         )}
+        {/* Modal Crea Invito */}
+{showInviteModal && (
+  <div style={{
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1000,
+  }}>
+    <div style={{
+      ...styles.card,
+      maxWidth: '500px',
+      margin: '20px',
+    }}>
+      <h3 style={{ marginBottom: '16px', color: colors.primary }}>
+        ➕ Invita Nuovo Utente
+      </h3>
+      
+      <Input
+        label="Nome Completo"
+        value={inviteData.name}
+        onChange={(val) => setInviteData(prev => ({ ...prev, name: val }))}
+        placeholder="Es: Mario Rossi"
+        required
+      />
+
+      <Input
+        label="Email"
+        type="email"
+        value={inviteData.email}
+        onChange={(val) => setInviteData(prev => ({ ...prev, email: val }))}
+        placeholder="Es: mario.rossi@email.com"
+        required
+      />
+
+      <Select
+        label="Ruolo"
+        value={inviteData.role}
+        onChange={(val) => setInviteData(prev => ({ ...prev, role: val }))}
+        options={[
+          { value: 'admin', label: '👔 Amministratore' },
+          { value: 'coach', label: '🎽 Allenatore' },
+          { value: 'player', label: '⚽ Giocatore' },
+        ]}
+      />
+
+      <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
+        <Button
+          title="📤 Crea e Genera Invito"
+          onPress={handleCreateInvite}
+          variant="success"
+          style={{ flex: 1 }}
+        />
+        <Button
+          title="Annulla"
+          onPress={() => setShowInviteModal(false)}
+          variant="outline"
+          style={{ flex: 1 }}
+        />
+      </div>
+    </div>
+  </div>
+)}
+
+{/* Modal Messaggio Invito Generato */}
+{showInviteMessage && (
+  <div style={{
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1001,
+  }}>
+    <div style={{
+      ...styles.card,
+      maxWidth: '600px',
+      margin: '20px',
+    }}>
+      <h3 style={{ marginBottom: '16px', color: colors.success }}>
+        ✅ Invito Creato con Successo!
+      </h3>
+      
+      <p style={{ marginBottom: '16px', color: colors.gray }}>
+        Copia il messaggio qui sotto e invialo al nuovo utente via WhatsApp, Email o SMS:
+      </p>
+
+      <div style={{
+        padding: '16px',
+        backgroundColor: colors.background,
+        borderRadius: '8px',
+        marginBottom: '16px',
+        fontFamily: 'monospace',
+        fontSize: '14px',
+        whiteSpace: 'pre-wrap',
+        border: `2px solid ${colors.lightGray}`,
+        maxHeight: '300px',
+        overflowY: 'auto',
+      }}>
+        {generatedInvite}
+      </div>
+
+      <div style={{ display: 'flex', gap: '12px' }}>
+        <Button
+          title="📋 Copia Invito"
+          onPress={handleCopyInvite}
+          variant="primary"
+          style={{ flex: 1 }}
+        />
+        <Button
+          title="📱 Invia su WhatsApp"
+          onPress={() => {
+            const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(generatedInvite)}`;
+            window.open(whatsappUrl, '_blank');
+          }}
+          variant="success"
+          style={{ flex: 1 }}
+        />
+        <Button
+          title="Chiudi"
+          onPress={() => {
+            setShowInviteMessage(false);
+            setGeneratedInvite('');
+            setInviteData({ email: '', name: '', role: 'player' });
+          }}
+          variant="outline"
+        />
+      </div>
+    </div>
+  </div>
+)}
       </div>
     </div>
   );
