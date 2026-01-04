@@ -3446,19 +3446,37 @@ const handleCreateInvite = async () => {
       const roleEmoji = inviteData.role === 'admin' ? '👔' : 
                         inviteData.role === 'coach' ? '🎽' : '⚽';
       
-      const message = `🎉 *Sei stato invitato su Academy Hub!*
+    const message = `🎉 *Sei stato invitato su Academy Hub!*
 
 👋 Ciao ${inviteData.name}!
 
-Sei stato aggiunto come *${roleEmoji} ${roleText}* nell'app Academy Hub - Sistema di Gestione Presenze Sportive.
+Sei stato aggiunto come *${roleEmoji} ${roleText}*.
 
-📱 *Per accedere:*
-1. Clicca qui: https://calcio-presenze.vercel.app
-2. Registrati usando questa email: *${inviteData.email}*
-3. Il tuo account è già autorizzato!
+📱 *INSTALLA L'APP (3 minuti):*
 
-⚽ *Academy Hub*
-Sistema Gestione Presenze Sportive`;
+*1️⃣ Apri il link:*
+https://calcio-presenze.vercel.app
+
+*2️⃣ Installa l'app sul telefono:*
+
+*iPhone/Safari:*
+- Tocca il pulsante "Condividi" (📤)
+- Scorri e tocca "Aggiungi a Home"
+- Tocca "Aggiungi"
+
+*Android/Chrome:*
+- Tocca i 3 puntini (⋮) in alto
+- Tocca "Installa app" o "Aggiungi a schermata Home"
+- Tocca "Installa"
+
+*3️⃣ Registrati con questa email:*
+${inviteData.email}
+
+*4️⃣ Trova l'icona ⚽ Academy Hub sul tuo telefono!*
+
+✅ Il tuo account è già autorizzato!
+
+⚽ *Academy Hub* - Gestione Presenze`;
 
       setGeneratedInvite(message);
       setShowInviteMessage(true);
