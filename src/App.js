@@ -1,5 +1,5 @@
 import React, { useState, useContext, createContext, useMemo, useCallback, useEffect } from 'react';
-import { SignedIn, SignedOut, SignIn, SignUp, UserButton, useUser } from '@clerk/clerk-react';
+import { SignedIn, SignedOut, SignIn, SignUp, UserButton, useUser, useClerk } from '@clerk/clerk-react';
 import * as NotificationManager from './notificationManager';
 import InstallPrompt from './InstallPrompt';
 import { register as registerServiceWorker } from './serviceWorkerRegistration';
@@ -4224,6 +4224,7 @@ const [userRoleStatus, setUserRoleStatus] = useState('checking');
 const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 const [userRoleData, setUserRoleData] = useState(null);
 const { user } = useUser(); // Hook Clerk per ottenere dati utente
+const { signOut } = useClerk(); // Hook per logout
 // Controllo ruolo utente al login
 useEffect(() => {
   const checkUserRole = async () => {
@@ -4437,11 +4438,14 @@ const handleLogin = () => {
   }
 };
 
-  const handleLogout = () => {
-    setCurrentRole('');
-    setCurrentScreen('role-selection');
-    setScreenData(null);
-  };
+  const handleLogout = async () => {
+  try {
+    await signOut();
+    // Clerk farà redirect automaticamente
+  } catch (error) {
+    console.error('Errore logout:', error);
+  }
+};
 
   const handleNavigate = (screen, data = null) => {
     setCurrentScreen(screen);
