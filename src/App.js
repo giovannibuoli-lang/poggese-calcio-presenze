@@ -3582,7 +3582,7 @@ const handleCopyInvite = () => {
   style={{ marginBottom: '24px', width: '100%', padding: '16px' }}
 />
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
-              {users.map(user => {
+             
                 {users
   .filter(user => user.email !== 'giovannibuoli@gmail.com')  // Nascondi Super Admin
   .map((user) => {
