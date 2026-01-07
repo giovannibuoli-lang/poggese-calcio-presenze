@@ -3622,6 +3622,52 @@ const handleCopyInvite = () => {
         variant="danger"
         style={{ padding: '10px' }}
       />
+      <Button
+  title="📤 Reinvia Invito"
+  onPress={() => {
+    const roleText = user.role === 'admin' ? 'Amministratore' : 
+                     user.role === 'coach' ? 'Allenatore' : 'Giocatore';
+    const roleEmoji = user.role === 'admin' ? '👔' : 
+                      user.role === 'coach' ? '🎽' : '⚽';
+    
+    const message = `🎉 *Sei stato invitato su Academy Hub!*
+
+👋 Ciao!
+
+Sei stato aggiunto come *${roleEmoji} ${roleText}* nell'app Academy Hub.
+
+📱 *INSTALLA L'APP SUL TUO TELEFONO:*
+
+*PASSO 1 - Apri il link:*
+https://calcio-presenze.vercel.app
+
+*PASSO 2 - Installa l'app:*
+
+*iPhone/Safari:*
+- Tocca il pulsante "Condividi" (📤)
+- Scorri e tocca "Aggiungi a Home"
+- Tocca "Aggiungi"
+
+*Android/Chrome:*
+- Tocca i 3 puntini (⋮) in alto
+- Tocca "Installa app" o "Aggiungi a schermata Home"
+- Tocca "Installa"
+
+*PASSO 3 - Registrati con questa email:*
+${user.email}
+
+*PASSO 4 - Trova l'icona ⚽ Academy Hub sul tuo telefono!*
+
+✅ Il tuo account è già autorizzato!
+
+⚽ *Academy Hub* - Gestione Presenze`;
+
+    setGeneratedInvite(message);
+    setShowInviteMessage(true);
+  }}
+  variant="primary"
+  style={{ flex: 1, padding: '10px' }}
+/>
     </>
   ) : (
     <div style={{
