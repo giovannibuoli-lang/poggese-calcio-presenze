@@ -3583,6 +3583,9 @@ const handleCopyInvite = () => {
 />
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
               {users.map(user => {
+                {users
+  .filter(user => user.email !== 'giovannibuoli@gmail.com')  // Nascondi Super Admin
+  .map((user) => {
                 const badge = getRoleBadge(user.role);
                 return (
                   <div key={user.id} style={styles.card}>
@@ -4682,7 +4685,7 @@ const App = () => {
           </button>
         </div>
         <div style={{ fontSize: '12px', opacity: 0.7 }}>
-          © 2025 Academy Hub - Conforme GDPR (UE 2016/679)
+          © 2026 Academy Hub - Conforme GDPR (UE 2016/679)
         </div>
       </div>
 
