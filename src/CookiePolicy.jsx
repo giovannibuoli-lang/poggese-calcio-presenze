@@ -159,7 +159,7 @@ const CookiePolicy = ({ onBack }) => {
             (pagine visitate, tempo di permanenza, ecc.) in forma aggregata e anonima.
           </p>
           <p style={styles.paragraph}>
-            <strong>PresenzaCalcio NON utilizza cookie analitici.</strong>
+            <strong>Academy Hub NON utilizza cookie analitici.</strong>
           </p>
 
           <h3 style={{fontSize: '16px', fontWeight: '700', marginTop: '20px', marginBottom: '10px'}}>
@@ -169,13 +169,13 @@ const CookiePolicy = ({ onBack }) => {
             Tracciano le tue abitudini di navigazione per mostrarti pubblicità personalizzata.
           </p>
           <p style={styles.paragraph}>
-            <strong>PresenzaCalcio NON utilizza cookie di profilazione o marketing.</strong>
+            <strong>Academy Hub NON utilizza cookie di profilazione o marketing.</strong>
           </p>
         </div>
 
         {/* Sezione 3 - Tabella Cookie */}
         <div style={styles.section}>
-          <h2 style={styles.sectionTitle}>3. Cookie Utilizzati da PresenzaCalcio</h2>
+          <h2 style={styles.sectionTitle}>3. Cookie Utilizzati da Academy Hub</h2>
           <p style={styles.paragraph}>
             Questa applicazione utilizza <strong>SOLO cookie tecnici necessari</strong> 
             per il funzionamento del servizio di autenticazione e gestione sessioni.
@@ -218,7 +218,7 @@ const CookiePolicy = ({ onBack }) => {
                 <td style={styles.td}>Tecnico</td>
                 <td style={styles.td}>Memorizza preferenze cookie</td>
                 <td style={styles.td}>1 anno</td>
-                <td style={styles.td}>PresenzaCalcio</td>
+                <td style={styles.td}>Academy Hub</td>
               </tr>
             </tbody>
           </table>

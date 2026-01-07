@@ -1,7 +1,7 @@
 import React from 'react';
 
 // ===== TERMS OF SERVICE COMPONENT =====
-// Termini e Condizioni d'uso - PresenzaCalcio
+// Termini e Condizioni d'uso - Academy Hub
 // S.S.D. POGGESE ACADEMY a R.L.
 const TermsOfService = ({ onBack }) => {
   const styles = {
@@ -91,7 +91,7 @@ const TermsOfService = ({ onBack }) => {
 
         <div style={styles.header}>
           <h1 style={styles.title}>📜 Termini e Condizioni d'Uso</h1>
-          <p style={styles.subtitle}>PresenzaCalcio - Sistema di Gestione Presenze Sportive</p>
+          <p style={styles.subtitle}>Academy Hub - Sistema di Gestione Presenze Sportive</p>
         </div>
 
         <div style={styles.updated}>
@@ -102,7 +102,7 @@ const TermsOfService = ({ onBack }) => {
         <div style={styles.section}>
           <h2 style={styles.sectionTitle}>1. Accettazione dei Termini</h2>
           <p style={styles.paragraph}>
-            Utilizzando l'applicazione <strong>PresenzaCalcio</strong> ("l'App"), 
+            Utilizzando l'applicazione <strong>Academy Hub</strong> ("l'App"), 
             accetti di essere vincolato da questi Termini e Condizioni d'Uso ("i Termini").
           </p>
           <p style={styles.paragraph}>
@@ -115,7 +115,7 @@ const TermsOfService = ({ onBack }) => {
           <h2 style={styles.sectionTitle}>2. Definizioni</h2>
           <ul style={styles.list}>
             <li style={styles.listItem}>
-              <strong>"App"</strong> - L'applicazione web PresenzaCalcio
+              <strong>"App"</strong> - L'applicazione web Academy Hub
             </li>
             <li style={styles.listItem}>
               <strong>"Associazione"</strong> - S.S.D. POGGESE ACADEMY a R.L., 

@@ -2,7 +2,7 @@ import React from 'react';
 
 // ===== PRIVACY POLICY COMPONENT =====
 // Conforme GDPR (Regolamento UE 2016/679)
-// PresenzaCalcio - S.S.D. POGGESE ACADEMY a R.L.
+// Academy Hub - S.S.D. POGGESE ACADEMY a R.L.
 const PrivacyPolicy = ({ onBack }) => {
   const styles = {
     container: {
@@ -103,7 +103,7 @@ const PrivacyPolicy = ({ onBack }) => {
           <h2 style={styles.sectionTitle}>1. Titolare del Trattamento</h2>
           <p style={styles.paragraph}>
             Il <strong>Titolare del Trattamento</strong> dei dati personali raccolti tramite l'applicazione 
-            "PresenzaCalcio" è:
+            "Academy Hub" è:
           </p>
           <p style={styles.paragraph}>
             <strong>S.S.D. POGGESE ACADEMY a R.L.</strong><br/>
