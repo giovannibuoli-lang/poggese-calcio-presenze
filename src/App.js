@@ -3028,7 +3028,8 @@ const PlayersList = ({ onNavigate, onBack }) => {
     email: '',
   });
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
-
+const [generatedInvite, setGeneratedInvite] = useState('');
+const [showInviteMessage, setShowInviteMessage] = useState(false);
   const handleOpenModal = (player = null, teamId = null) => {
     if (player) {
       setEditingPlayer({ ...player, teamId });
@@ -3052,7 +3053,7 @@ const PlayersList = ({ onNavigate, onBack }) => {
     setShowModal(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const teamId = editingPlayer?.teamId || selectedTeam;
 
     if (!teamId) {
@@ -3075,6 +3076,30 @@ const PlayersList = ({ onNavigate, onBack }) => {
         number: parseInt(formData.number),
       };
       addPlayer(teamId, newPlayer);
+      // Crea automaticamente account utente se ha email
+if (formData.email && formData.email.trim() !== '') {
+  try {
+    await fetch('/api/db', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'create_invited_user',
+        data: {
+          id: `usr_${Date.now()}`,
+          user_id: newPlayer.id,
+          email: formData.email,
+          role: 'player',
+          approved_by: 'auto',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }
+      })
+    });
+  } catch (error) {
+    console.error('Errore creazione account utente:', error);
+    // Non blocchiamo il flusso se fallisce
+  }
+}
       addNotification('Giocatore aggiunto', 'success');
     }
 
@@ -3191,6 +3216,53 @@ const PlayersList = ({ onNavigate, onBack }) => {
                     variant="danger"
                     style={{ padding: '10px' }}
                   />
+                 <Button
+  title="📤 Reinvia Invito"
+  onPress={() => {
+    // Controllo se ha email
+    if (!player.email || player.email.trim() === '') {
+      addNotification('⚠️ Aggiungi prima l\'email a questo giocatore', 'error');
+      return;
+    }
+
+    const message = `🎉 *Sei stato invitato su Academy Hub!*
+
+👋 Ciao ${player.name}!
+
+Sei stato aggiunto come *⚽ Giocatore* nell'app Academy Hub.
+
+📱 *INSTALLA L'APP SUL TUO TELEFONO:*
+
+*PASSO 1 - Apri il link:*
+https://calcio-presenze.vercel.app
+
+*PASSO 2 - Installa l'app:*
+
+*iPhone/Safari:*
+- Tocca il pulsante "Condividi" (📤)
+- Scorri e tocca "Aggiungi a Home"
+- Tocca "Aggiungi"
+
+*Android/Chrome:*
+- Tocca i 3 puntini (⋮) in alto
+- Tocca "Installa app" o "Aggiungi a schermata Home"
+- Tocca "Installa"
+
+*PASSO 3 - Registrati con questa email:*
+${player.email}
+
+*PASSO 4 - Trova l'icona ⚽ Academy Hub sul tuo telefono!*
+
+✅ Il tuo account è già autorizzato!
+
+⚽ *Academy Hub* - Gestione Presenze`;
+
+    setGeneratedInvite(message);
+    setShowInviteMessage(true);
+  }}
+  variant="primary"
+  style={{ flex: 1, padding: '10px' }}
+/> 
                 </div>
               </div>
             ))}
@@ -3330,6 +3402,79 @@ const PlayersList = ({ onNavigate, onBack }) => {
         )}
       </div>
     </div>
+    {/* Modal Messaggio Invito Generato */}
+{showInviteMessage && (
+  <div style={{
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1001,
+  }}>
+    <div style={{
+      ...styles.card,
+      maxWidth: '600px',
+      margin: '20px',
+    }}>
+      <h3 style={{ marginBottom: '16px', color: colors.success }}>
+        ✅ Invito Pronto!
+      </h3>
+      
+      <p style={{ marginBottom: '16px', color: colors.gray }}>
+        Copia il messaggio qui sotto e invialo al giocatore via WhatsApp, Email o SMS:
+      </p>
+
+      <div style={{
+        padding: '16px',
+        backgroundColor: colors.background,
+        borderRadius: '8px',
+        marginBottom: '16px',
+        fontFamily: 'monospace',
+        fontSize: '14px',
+        whiteSpace: 'pre-wrap',
+        border: `2px solid ${colors.lightGray}`,
+        maxHeight: '300px',
+        overflowY: 'auto',
+      }}>
+        {generatedInvite}
+      </div>
+
+      <div style={{ display: 'flex', gap: '12px' }}>
+        <Button
+          title="📋 Copia Invito"
+          onPress={() => {
+            navigator.clipboard.writeText(generatedInvite);
+            addNotification('Invito copiato! Invialo via WhatsApp/Email', 'success');
+          }}
+          variant="primary"
+          style={{ flex: 1 }}
+        />
+        <Button
+          title="📱 Invia su WhatsApp"
+          onPress={() => {
+            const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(generatedInvite)}`;
+            window.open(whatsappUrl, '_blank');
+          }}
+          variant="success"
+          style={{ flex: 1 }}
+        />
+        <Button
+          title="Chiudi"
+          onPress={() => {
+            setShowInviteMessage(false);
+            setGeneratedInvite('');
+          }}
+          variant="outline"
+        />
+      </div>
+    </div>
+  </div>
+)}
   );
 };
 // ===== USERS MANAGEMENT (ADMIN ONLY) =====
