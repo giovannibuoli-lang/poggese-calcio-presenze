@@ -2179,21 +2179,21 @@ const AttendanceView = ({ onBack, eventId }) => {
                       title="✅ Presente"
                       onPress={() => handleAttendanceChange(player.id, 'presente')}
                       variant={playerStatus === 'presente' ? 'success' : 'outline'}
-                      style={{ flex: 1 }}
+                      style={{ flex: 1, padding: '16px', fontSize: '16px', minHeight: '56px' }}
                       disabled={isCompleted}
                     />
                     <Button
                       title="❌ Assente"
                       onPress={() => handleAttendanceChange(player.id, 'assente')}
                       variant={playerStatus === 'assente' ? 'danger' : 'outline'}
-                      style={{ flex: 1 }}
+                     style={{ flex: 1, padding: '16px', fontSize: '16px', minHeight: '56px' }}
                       disabled={isCompleted}
                     />
                     <Button
                       title="🤕 Infortunato"
                       onPress={() => handleAttendanceChange(player.id, 'infortunato')}
                       variant={playerStatus === 'infortunato' ? 'warning' : 'outline'}
-                      style={{ flex: 1 }}
+                     style={{ flex: 1, padding: '16px', fontSize: '16px', minHeight: '56px' }}
                       disabled={isCompleted}
                     />
                   </div>
