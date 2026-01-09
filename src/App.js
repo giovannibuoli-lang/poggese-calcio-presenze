@@ -3401,8 +3401,8 @@ ${player.email}
           </div>
         )}
       </div>
-    </div>
-    {/* Modal Messaggio Invito Generato */}
+    
+        {/* Modal Messaggio Invito Generato */}
 {showInviteMessage && (
   <div style={{
     position: 'fixed',
@@ -3475,6 +3475,8 @@ ${player.email}
     </div>
   </div>
 )}
+</div>
+
   );
 };
 // ===== USERS MANAGEMENT (ADMIN ONLY) =====
