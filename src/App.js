@@ -2174,7 +2174,7 @@ const AttendanceView = ({ onBack, eventId }) => {
                     </div>
                   </div>
                 
-                  ><div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     <Button
                       title="✅ Presente"
                       onPress={() => handleAttendanceChange(player.id, 'presente')}
