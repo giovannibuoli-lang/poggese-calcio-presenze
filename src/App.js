@@ -2907,7 +2907,7 @@ const TeamsList = ({ onNavigate, onBack }) => {
                   Anteprima:
                 </div>
                 <div style={{
-                  display: 'inline-block',
+                 
                   width: '80px',
                   height: '80px',
                   borderRadius: '16px',
