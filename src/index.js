@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import { ClerkProvider } from '@clerk/clerk-react';
+import { itIT } from '@clerk/localizations';
 
 // Importa la Publishable Key
 const PUBLISHABLE_KEY = 'pk_test_ZXhjaXRlZC1taXRlLTY1LmNsZXJrLmFjY291bnRzLmRldiQ';
@@ -13,7 +14,7 @@ if (!PUBLISHABLE_KEY) {
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
-    <ClerkProvider publishableKey={PUBLISHABLE_KEY}>
+   <ClerkProvider publishableKey={PUBLISHABLE_KEY} localization={itIT}>
       <App />
     </ClerkProvider>
   </React.StrictMode>
