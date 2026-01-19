@@ -367,52 +367,42 @@ const AppProvider = ({ children }) => {
     setEvents(prev => prev.filter(e => e.teamId !== teamId));
   }, []);
 
-  const addPlayer = useCallback(async ({teamId, player}) => {
+const addPlayer = useCallback(async ({teamId, player}) => {
+  // Estrai email e nome
+  const email = player.email;
+  const fullName = player.name || '';
+  
+  // Splitta nome in firstName/lastName
+  const nameParts = fullName.trim().split(' ');
+  const firstName = nameParts[0] || '';
+  const lastName = nameParts.slice(1).join(' ') || '';
+
   try {
-    // STEP 1: Crea utente su Clerk e invia invito
-    if (player.email && player.name) {
-      // Splitta il nome in firstName e lastName
-      const nameParts = player.name.trim().split(' ');
-      const firstName = nameParts[0] || 'Utente';
-      const lastName = nameParts.slice(1).join(' ') || 'Academy';
+    // Chiama API Clerk per invito
+    const response = await fetch('/api/invite-user', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, firstName, lastName })
+    });
 
-      // Chiama l'endpoint per invitare l'utente su Clerk
-      const inviteResponse = await fetch('/api/invite-user', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: player.email,
-          firstName: firstName,
-          lastName: lastName,
-        }),
-      });
+    const data = await response.json();
 
-      const inviteData = await inviteResponse.json();
-
-      // Gestione errore: utente già esistente (409) è OK, altri errori NO
-      if (!inviteResponse.ok && inviteResponse.status !== 409) {
-        throw new Error(inviteData.error || 'Errore nella creazione utente Clerk');
-      }
-
-      // Se tutto OK o utente già esistente, mostra messaggio
-      if (inviteResponse.ok) {
-        addNotification(`✅ Invito inviato a ${player.email}!`, 'success');
-      } else if (inviteResponse.status === 409) {
-        addNotification(`ℹ️ ${player.email} è già registrato su Clerk`, 'info');
-      }
+    if (response.ok) {
+      console.log('✅ Invito Clerk inviato con successo');
+    } else if (response.status === 409) {
+      console.log('ℹ️ Utente già registrato in Clerk');
+    } else {
+      console.error('❌ Errore invito Clerk:', data.error);
     }
-
-    // STEP 2: Salva nel database D1 (come prima)
-    await api.addPlayer(teamId, player);
-    setPlayers(prev => ({ ...prev, [teamId]: [...(prev[teamId] || []), player] }));
-
   } catch (error) {
-    console.error('Errore in addPlayer:', error);
-    addNotification(`❌ Errore: ${error.message}`, 'error');
-    throw error; // Rilancia l'errore per gestirlo nel form
+    console.error('❌ Errore chiamata API Clerk:', error);
   }
-}, [addNotification]);
 
+  // Salva nel database D1
+  await api.addPlayer(teamId, player);
+  setPlayers(prev => ({ ...prev, [teamId]: [...(prev[teamId] || []), player] }));
+}, []);
+ 
   const updatePlayer = useCallback(async (teamId, playerId, updates) => {
     await api.updatePlayer(playerId, updates);
     setPlayers(prev => ({
