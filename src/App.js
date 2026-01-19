@@ -367,10 +367,51 @@ const AppProvider = ({ children }) => {
     setEvents(prev => prev.filter(e => e.teamId !== teamId));
   }, []);
 
-  const addPlayer = useCallback(async (teamId, player) => {
+  const addPlayer = useCallback(async ({teamId, player}) => {
+  try {
+    // STEP 1: Crea utente su Clerk e invia invito
+    if (player.email && player.name) {
+      // Splitta il nome in firstName e lastName
+      const nameParts = player.name.trim().split(' ');
+      const firstName = nameParts[0] || 'Utente';
+      const lastName = nameParts.slice(1).join(' ') || 'Academy';
+
+      // Chiama l'endpoint per invitare l'utente su Clerk
+      const inviteResponse = await fetch('/api/invite-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: player.email,
+          firstName: firstName,
+          lastName: lastName,
+        }),
+      });
+
+      const inviteData = await inviteResponse.json();
+
+      // Gestione errore: utente già esistente (409) è OK, altri errori NO
+      if (!inviteResponse.ok && inviteResponse.status !== 409) {
+        throw new Error(inviteData.error || 'Errore nella creazione utente Clerk');
+      }
+
+      // Se tutto OK o utente già esistente, mostra messaggio
+      if (inviteResponse.ok) {
+        addNotification(`✅ Invito inviato a ${player.email}!`, 'success');
+      } else if (inviteResponse.status === 409) {
+        addNotification(`ℹ️ ${player.email} è già registrato su Clerk`, 'info');
+      }
+    }
+
+    // STEP 2: Salva nel database D1 (come prima)
     await api.addPlayer(teamId, player);
     setPlayers(prev => ({ ...prev, [teamId]: [...(prev[teamId] || []), player] }));
-  }, []);
+
+  } catch (error) {
+    console.error('Errore in addPlayer:', error);
+    addNotification(`❌ Errore: ${error.message}`, 'error');
+    throw error; // Rilancia l'errore per gestirlo nel form
+  }
+}, [addNotification]);
 
   const updatePlayer = useCallback(async (teamId, playerId, updates) => {
     await api.updatePlayer(playerId, updates);
