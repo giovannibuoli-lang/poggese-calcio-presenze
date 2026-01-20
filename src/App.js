@@ -3152,10 +3152,9 @@ const PlayersList = ({ onNavigate, onBack }) => {
 
     addNotification('📤 Invio invito in corso...', 'info');
 
-    const nameParts = player.name.trim().split(' ');
-    const firstName = nameParts[0] || '';
-    const lastName = nameParts.slice(1).join(' ') || '';
-
+   const nameParts = player.name.trim().split(' ');
+const firstName = nameParts[0] || 'Giocatore';
+const lastName = nameParts.slice(1).join(' ') || 'Academy'; 
     const clerkResult = await clerkAPI.inviteUser(player.email, firstName, lastName);
 
     if (!clerkResult.success) {
