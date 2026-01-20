@@ -6,14 +6,19 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { email, firstName, lastName } = req.body;
+    
+    let { email, firstName, lastName } = req.body;
 
-    // Validazione input
-    if (!email || !firstName || !lastName) {
-      return res.status(400).json({ 
-        error: 'Email, firstName e lastName sono obbligatori' 
-      });
-    }
+// Valori di default se mancano
+firstName = firstName?.trim() || 'Giocatore';
+lastName = lastName?.trim() || 'Academy';
+
+// Validazione solo email
+if (!email) {
+  return res.status(400).json({ 
+    error: 'Email è obbligatoria' 
+  });
+}
 
     // Chiama API Clerk per creare l'utente
     const clerkResponse = await fetch('https://api.clerk.com/v1/users', {
