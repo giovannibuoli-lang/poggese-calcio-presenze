@@ -74,39 +74,14 @@ const api = {
   deleteEvent: (id) => apiCall('POST', { action: 'delete_event', id }),
 };
 
-// ===== CLERK API HELPER (NUOVO) =====
-const clerkAPI = {
-  inviteUser: async (email, firstName, lastName) => {
-    try {
-      const response = await fetch('/api/invite-user', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, firstName, lastName })
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        return { success: true, data };
-      } else if (response.status === 409) {
-        return { success: true, alreadyExists: true };
-      } else {
-        return { success: false, error: data.error };
-      }
-    } catch (error) {
-      return { success: false, error: error.message };
-    }
-  }
-};
-
 // ===== DESIGN SYSTEM =====
 const colors = {
-  primary: '#1E88E5',
+  primary: '#1E88E5',      // Azzurro principale
   primaryDark: '#1565C0',
   primaryLight: '#42A5F5',
-  secondary: '#1976D2',
+  secondary: '#1976D2',    // Blu
   secondaryDark: '#0D47A1',
-  accent: '#FF6F00',
+  accent: '#FF6F00',       // Arancione accento
   success: '#43A047',
   warning: '#FB8C00',
   danger: '#E53935',
@@ -206,12 +181,6 @@ const isFuture = (date) => {
   today.setHours(0, 0, 0, 0);
   d.setHours(0, 0, 0, 0);
   return d >= today;
-};
-
-// ===== VALIDAZIONE EMAIL (NUOVO) =====
-const validateEmail = (email) => {
-  const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return re.test(String(email).toLowerCase());
 };
 
 // WhatsApp Utils
@@ -355,6 +324,7 @@ const AppProvider = ({ children }) => {
       } catch (error) {
         console.error('Errore caricamento:', error);
         console.log('🔧 Impostazione dati demo...');
+        // Fallback a dati iniziali
         const initialTeams = {
           team1: { id: 'team1', name: 'Prima Squadra', category: 'Seniores', color: colors.primary, icon: '⚽' },
           team2: { id: 'team2', name: 'Juniores', category: 'Under 19', color: colors.secondary, icon: '🏆' },
@@ -397,46 +367,40 @@ const AppProvider = ({ children }) => {
     setEvents(prev => prev.filter(e => e.teamId !== teamId));
   }, []);
 
-// ✅ CORRETTO - addPlayer con validazione e gestione errori
-const addPlayer = useCallback(async (teamId, player) => {
+const addPlayer = useCallback(async ({teamId, player}) => {
+  // Estrai email e nome
   const email = player.email;
   const fullName = player.name || '';
   
+  // Splitta nome in firstName/lastName
   const nameParts = fullName.trim().split(' ');
   const firstName = nameParts[0] || '';
   const lastName = nameParts.slice(1).join(' ') || '';
 
-  // ✅ VALIDAZIONE EMAIL
-  if (email && email.trim() !== '') {
-    if (!validateEmail(email)) {
-      throw new Error('Email non valida');
-    }
+  try {
+    // Chiama API Clerk per invito
+    const response = await fetch('/api/invite-user', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, firstName, lastName })
+    });
 
-    // ✅ CHIAMATA CLERK API CON GESTIONE ERRORI
-    const clerkResult = await clerkAPI.inviteUser(email, firstName, lastName);
-    
-    if (!clerkResult.success) {
-      throw new Error(`Errore Clerk: ${clerkResult.error}`);
-    }
+    const data = await response.json();
 
-    if (clerkResult.alreadyExists) {
+    if (response.ok) {
+      console.log('✅ Invito Clerk inviato con successo');
+    } else if (response.status === 409) {
       console.log('ℹ️ Utente già registrato in Clerk');
     } else {
-      console.log('✅ Invito Clerk inviato con successo');
+      console.error('❌ Errore invito Clerk:', data.error);
     }
+  } catch (error) {
+    console.error('❌ Errore chiamata API Clerk:', error);
   }
 
-  // ✅ Salva nel database D1
-  const newPlayer = {
-    id: `p${Date.now()}`,
-    ...player,
-    number: parseInt(player.number),
-  };
-  
-  await api.addPlayer(teamId, newPlayer);
-  setPlayers(prev => ({ ...prev, [teamId]: [...(prev[teamId] || []), newPlayer] }));
-
-  return newPlayer;
+  // Salva nel database D1
+  await api.addPlayer(teamId, player);
+  setPlayers(prev => ({ ...prev, [teamId]: [...(prev[teamId] || []), player] }));
 }, []);
  
   const updatePlayer = useCallback(async (teamId, playerId, updates) => {
@@ -456,11 +420,15 @@ const addPlayer = useCallback(async (teamId, player) => {
     await api.addEvent(event);
     setEvents(prev => [...prev, event]);
     
+    // 🔔 NOTIFICHE: Notifica istantanea ai giocatori convocati
     if (event.convocati && event.convocati.length > 0) {
       const teamPlayers = players[event.teamId] || [];
       const convocatedPlayers = teamPlayers.filter(p => event.convocati.includes(p.id));
       
+      // Invia notifica istantanea
       NotificationManager.notifyNewEvent(event, convocatedPlayers);
+      
+      // Schedula notifiche future (24h prima)
       NotificationManager.scheduleEventNotifications(event, convocatedPlayers);
       
       console.log(`📬 Notifiche inviate a ${convocatedPlayers.length} giocatori`);
@@ -507,6 +475,8 @@ const addEventResponse = useCallback(async (eventId, playerId, response) => {
   
   const updatedEvent = { ...event, responses: updatedResponses };
   setEvents(prev => prev.map(e => e.id === eventId ? updatedEvent : e));
+  
+  // Notifica rimossa - L'allenatore vedrà le risposte nell'interfaccia
 }, [events, players]);
 
   const resetAllData = useCallback(async () => {
@@ -1221,6 +1191,7 @@ const Dashboard = ({ role, onNavigate, onLogout }) => {
     </div>
   );
 };
+
 // ===== EVENTS LIST =====
 const EventsList = ({ onNavigate, onBack }) => {
   const { events, teams } = useAppContext();
@@ -1300,8 +1271,8 @@ const EventsList = ({ onNavigate, onBack }) => {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {filteredEvents.map(event => {
               const team = teams[event.teamId];
-              const responseCount = Object.keys(event.responses || {}).length;
-              const presentCount = Object.values(event.responses || {}).filter(r => r.status === 'presente').length;
+              const responseCount = Object.keys(event.responses).length;
+              const presentCount = Object.values(event.responses).filter(r => r.status === 'presente').length;
               const convocatiCount = event.convocati?.length || 0;
 
               return (
@@ -1672,7 +1643,7 @@ const CreateEditEvent = ({ onNavigate, onBack, eventId = null }) => {
 
 // ===== EVENT DETAIL =====
 const EventDetail = ({ onNavigate, onBack, eventId, currentRole }) => {
-  const { events, teams, players, deleteEvent } = useAppContext();
+  const { events, teams, players, deleteEvent, addEventResponse } = useAppContext();
   const { addNotification } = useNotification();
 
   const event = events.find(e => e.id === eventId);
@@ -1681,8 +1652,10 @@ const EventDetail = ({ onNavigate, onBack, eventId, currentRole }) => {
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
+  // Verifica se l'appello è stato fatto
   const attendanceTaken = NotificationManager.isAttendanceTaken(eventId);
   
+  // Verifica se l'evento è oggi o nel passato (può fare appello)
   const eventDate = event ? new Date(event.date) : null;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -1712,7 +1685,6 @@ const EventDetail = ({ onNavigate, onBack, eventId, currentRole }) => {
   };
 
   const handleSendWhatsApp = () => {
-    const convocatiList = teamPlayers.filter(p => event.convocati?.includes(p.id));
     const message = generateWhatsAppMessage(event, team, teamPlayers, convocatiList);
     openWhatsApp(message);
     addNotification('Apertura WhatsApp...', 'success');
@@ -1720,10 +1692,10 @@ const EventDetail = ({ onNavigate, onBack, eventId, currentRole }) => {
 
   const convocatiList = teamPlayers.filter(p => event.convocati?.includes(p.id));
   const responseStats = {
-    presenti: Object.values(event.responses || {}).filter(r => r.status === 'presente').length,
-    assenti: Object.values(event.responses || {}).filter(r => r.status === 'assente').length,
-    forse: Object.values(event.responses || {}).filter(r => r.status === 'forse').length,
-    noRisposta: convocatiList.length - Object.keys(event.responses || {}).length,
+    presenti: Object.values(event.responses).filter(r => r.status === 'presente').length,
+    assenti: Object.values(event.responses).filter(r => r.status === 'assente').length,
+    forse: Object.values(event.responses).filter(r => r.status === 'forse').length,
+    noRisposta: convocatiList.length - Object.keys(event.responses).length,
   };
 
   return (
@@ -1777,6 +1749,7 @@ const EventDetail = ({ onNavigate, onBack, eventId, currentRole }) => {
           </div>
 
           <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+            {/* Bottone Fai Appello - Solo per Admin/Coach e solo se evento è oggi o passato */}
             {(currentRole === 'admin' || currentRole === 'coach') && canTakeAttendance && (
               <Button
                 title={attendanceTaken ? "📋 Vedi Appello" : "📋 Fai Appello"}
@@ -1860,7 +1833,7 @@ const EventDetail = ({ onNavigate, onBack, eventId, currentRole }) => {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {convocatiList.map(player => {
-              const response = event.responses?.[player.id];
+              const response = event.responses[player.id];
               const statusConfig = {
                 presente: { color: colors.success, icon: '✓', text: 'PRESENTE', bg: `${colors.success}20` },
                 assente: { color: colors.danger, icon: '✗', text: 'ASSENTE', bg: `${colors.danger}20` },
@@ -1918,7 +1891,8 @@ const EventDetail = ({ onNavigate, onBack, eventId, currentRole }) => {
                         }}>
                           💬 <strong>Nota:</strong> {response.note}
                         </div>
-                      )}
+                      )
+                      }
                       {response && (
                         <div style={{ marginTop: '8px', fontSize: '12px', color: colors.gray }}>
                           🕐 Risposto il {formatDate(response.respondedAt)} alle {new Date(response.respondedAt).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
@@ -1998,6 +1972,7 @@ const AttendanceView = ({ onBack, eventId }) => {
   const teamPlayers = event ? players[event.teamId] || [] : [];
   const convocatiList = teamPlayers.filter(p => event.convocati?.includes(p.id));
   
+  // Carica appello esistente se presente
   const existingAttendance = NotificationManager.getRealAttendance(eventId);
   const [attendance, setAttendance] = useState(
     existingAttendance?.attendanceData || {}
@@ -2029,14 +2004,17 @@ const AttendanceView = ({ onBack, eventId }) => {
   };
 
   const handleSaveAttendance = () => {
+    // Salva l'appello
     const savedData = NotificationManager.saveRealAttendance(eventId, attendance);
     
+    // Calcola statistiche
     const stats = {
       present: Object.values(attendance).filter(s => s === 'presente').length,
       absent: Object.values(attendance).filter(s => s === 'assente').length,
       injured: Object.values(attendance).filter(s => s === 'infortunato').length,
     };
     
+    // Notifica completamento
     NotificationManager.notifyAttendanceCompleted(event, stats);
     
     setIsCompleted(true);
@@ -2054,6 +2032,7 @@ const AttendanceView = ({ onBack, eventId }) => {
     total: convocatiList.length,
   };
 
+  // Confronto con presenze confermate
   const comparison = NotificationManager.compareAttendance(eventId, convocatiList);
 
   return (
@@ -2136,7 +2115,7 @@ const AttendanceView = ({ onBack, eventId }) => {
           </div>
         </div>
 
-        {/* Confronto con Conferme */}
+        {/* Confronto con Conferme (se appello completato) */}
         {isCompleted && comparison && (
           <div style={styles.card}>
             <h3 style={{ marginBottom: '16px', color: colors.primary }}>
@@ -2284,6 +2263,7 @@ const AttendanceView = ({ onBack, eventId }) => {
     </div>
   );
 };
+
 // ===== CALENDAR VIEW =====
 const CalendarView = ({ onNavigate, onBack }) => {
   const { events, teams } = useAppContext();
@@ -2322,10 +2302,12 @@ const CalendarView = ({ onNavigate, onBack }) => {
   const renderCalendarDays = () => {
     const days = [];
     
+    // Empty cells before first day
     for (let i = 0; i < startingDayOfWeek; i++) {
       days.push(<div key={`empty-${i}`} style={{ padding: '8px' }} />);
     }
 
+    // Days of month
     for (let day = 1; day <= daysInMonth; day++) {
       const dayEvents = getEventsForDay(day);
       const isToday = new Date().getDate() === day && 
@@ -2406,16 +2388,19 @@ const CalendarView = ({ onNavigate, onBack }) => {
         </div>
       </div>
       <div style={styles.content}>
+        {/* Navigation */}
         <div style={styles.card}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Button title="← Mese Precedente" onPress={previousMonth} variant="outline" className="calendar-nav-button" />
             <div className="calendar-month-title" style={{ fontSize: '24px', fontWeight: '700', textAlign: 'center' }}>
-              {monthNames[month]} {year}
-            </div>
+  {monthNames[month]} {year}
+</div>
             <Button title="Mese Successivo →" onPress={nextMonth} variant="outline" className="calendar-nav-button" />
+            
           </div>
         </div>
 
+        {/* Legend */}
         <div style={styles.card}>
           <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', justifyContent: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -2433,25 +2418,28 @@ const CalendarView = ({ onNavigate, onBack }) => {
           </div>
         </div>
 
+        {/* Calendar Grid */}
         <div style={styles.card}>
+          {/* Day Names */}
           <div style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(7, 1fr)',
             gap: '8px',
             marginBottom: '8px',
           }}>
-            {dayNames.map(day => (
-              <div key={day} className="calendar-header calendar-day-name" style={{ 
-                fontWeight: '700', 
-                textAlign: 'center',
-                padding: '8px',
-                color: colors.primary,
-              }}>
-                {day}
-              </div>
-            ))}
+           {dayNames.map(day => (
+  <div key={day} className="calendar-header calendar-day-name" style={{ 
+    fontWeight: '700', 
+    textAlign: 'center',
+    padding: '8px',
+    color: colors.primary,
+  }}>
+    {day}
+  </div>
+))}
           </div>
 
+          {/* Days Grid */}
           <div style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(7, 1fr)',
@@ -2489,8 +2477,8 @@ const StatisticsView = ({ onBack }) => {
     let totalPresenti = 0;
     
     teamEvents.forEach(event => {
-      totalResponses += Object.keys(event.responses || {}).length;
-      totalPresenti += Object.values(event.responses || {}).filter(r => r.status === 'presente').length;
+      totalResponses += Object.keys(event.responses).length;
+      totalPresenti += Object.values(event.responses).filter(r => r.status === 'presente').length;
     });
     
     const avgResponseRate = totalEvents > 0 ? Math.round((totalResponses / (totalEvents * teamPlayers.length)) * 100) : 0;
@@ -2530,6 +2518,7 @@ const StatisticsView = ({ onBack }) => {
           </div>
         ) : (
           <>
+            {/* Team Overview Stats */}
             {teamStats && (
               <div style={styles.card}>
                 <h3 style={{ marginBottom: '16px', color: colors.primary }}>📈 Statistiche Squadra</h3>
@@ -2560,6 +2549,7 @@ const StatisticsView = ({ onBack }) => {
               </div>
             )}
 
+            {/* Players Stats Table */}
             <div style={styles.card}>
               <h3 style={{ marginBottom: '16px', color: colors.primary }}>
                 🏆 Classifica Presenze Giocatori
@@ -2640,6 +2630,7 @@ const StatisticsView = ({ onBack }) => {
               )}
             </div>
 
+            {/* Top 3 Players */}
             {playersWithStats.length >= 3 && (
               <div style={styles.card}>
                 <h3 style={{ marginBottom: '16px', color: colors.primary }}>🥇 Top 3 Giocatori</h3>
@@ -2690,6 +2681,7 @@ const TeamsList = ({ onNavigate, onBack }) => {
   const [formData, setFormData] = useState({ name: '', category: '', color: colors.primary, icon: '⚽' });
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
 
+  // Icone disponibili a tema calcio
   const availableIcons = [
     '⚽', '🏆', '🥇', '🥈', '🥉', '⭐', '🌟', '💫', 
     '🎯', '🔥', '⚡', '👕', '🛡️', '🏃', '🦅', '🦁',
@@ -2774,6 +2766,7 @@ const TeamsList = ({ onNavigate, onBack }) => {
                   position: 'relative',
                   overflow: 'hidden',
                 }}>
+                  {/* Background decorativo con colore squadra */}
                   <div style={{
                     position: 'absolute',
                     top: -20,
@@ -2786,6 +2779,7 @@ const TeamsList = ({ onNavigate, onBack }) => {
                   }} />
                   
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '16px', position: 'relative' }}>
+                    {/* Icona grande e bella */}
                     <div style={{
                       width: '80px',
                       height: '80px',
@@ -2879,6 +2873,7 @@ const TeamsList = ({ onNavigate, onBack }) => {
                 required
               />
 
+              {/* Selezione Icona */}
               <div style={{ marginBottom: '16px' }}>
                 <label style={{
                   display: 'block',
@@ -2931,6 +2926,7 @@ const TeamsList = ({ onNavigate, onBack }) => {
                 </div>
               </div>
 
+              {/* Preview Icona Selezionata */}
               <div style={{
                 padding: '16px',
                 backgroundColor: colors.background,
@@ -2942,7 +2938,7 @@ const TeamsList = ({ onNavigate, onBack }) => {
                   Anteprima:
                 </div>
                 <div style={{
-                  margin: '0 auto',
+                 
                   width: '80px',
                   height: '80px',
                   borderRadius: '16px',
@@ -3047,7 +3043,7 @@ const TeamsList = ({ onNavigate, onBack }) => {
   );
 };
 
-// ===== PLAYERS MANAGEMENT (✅ CORRETTO CON FIX CLERK API) =====
+// ===== PLAYERS MANAGEMENT =====
 const PlayersList = ({ onNavigate, onBack }) => {
   const { teams, players, addPlayer, updatePlayer, deletePlayer } = useAppContext();
   const { addNotification } = useNotification();
@@ -3063,9 +3059,8 @@ const PlayersList = ({ onNavigate, onBack }) => {
     email: '',
   });
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
-  const [generatedInvite, setGeneratedInvite] = useState('');
-  const [showInviteMessage, setShowInviteMessage] = useState(false);
-
+const [generatedInvite, setGeneratedInvite] = useState('');
+const [showInviteMessage, setShowInviteMessage] = useState(false);
   const handleOpenModal = (player = null, teamId = null) => {
     if (player) {
       setEditingPlayer({ ...player, teamId });
@@ -3102,23 +3097,41 @@ const PlayersList = ({ onNavigate, onBack }) => {
       return;
     }
 
-    // ✅ VALIDAZIONE EMAIL
-    if (formData.email && formData.email.trim() !== '' && !validateEmail(formData.email)) {
-      addNotification('Email non valida', 'error');
-      return;
-    }
-
     if (editingPlayer) {
       updatePlayer(teamId, editingPlayer.id, formData);
       addNotification('Giocatore aggiornato', 'success');
     } else {
-      try {
-        await addPlayer(teamId, formData);
-        addNotification('Giocatore aggiunto con successo', 'success');
-      } catch (error) {
-        addNotification(error.message || 'Errore aggiunta giocatore', 'error');
-        return;
-      }
+      const newPlayer = {
+        id: `p${Date.now()}`,
+        ...formData,
+        number: parseInt(formData.number),
+      };
+      addPlayer(teamId, newPlayer);
+      // Crea automaticamente account utente se ha email
+if (formData.email && formData.email.trim() !== '') {
+  try {
+    await fetch('/api/db', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'create_invited_user',
+        data: {
+          id: `usr_${Date.now()}`,
+          user_id: newPlayer.id,
+          email: formData.email,
+          role: 'player',
+          approved_by: 'auto',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }
+      })
+    });
+  } catch (error) {
+    console.error('Errore creazione account utente:', error);
+    // Non blocchiamo il flusso se fallisce
+  }
+}
+      addNotification('Giocatore aggiunto', 'success');
     }
 
     setShowModal(false);
@@ -3136,73 +3149,6 @@ const PlayersList = ({ onNavigate, onBack }) => {
     deletePlayer(teamId, playerId);
     addNotification('Giocatore eliminato', 'success');
     setShowDeleteConfirm(null);
-  };
-
-  // ✅ CORRETTO - Reinvia Invito chiama effettivamente Clerk API
-  const handleResendInvite = async (player) => {
-    if (!player.email || player.email.trim() === '') {
-      addNotification('⚠️ Aggiungi prima l\'email a questo giocatore', 'error');
-      return;
-    }
-
-    if (!validateEmail(player.email)) {
-      addNotification('⚠️ Email non valida', 'error');
-      return;
-    }
-
-    addNotification('📤 Invio invito in corso...', 'info');
-
-    const nameParts = player.name.trim().split(' ');
-    const firstName = nameParts[0] || '';
-    const lastName = nameParts.slice(1).join(' ') || '';
-
-    const clerkResult = await clerkAPI.inviteUser(player.email, firstName, lastName);
-
-    if (!clerkResult.success) {
-      addNotification(`❌ Errore: ${clerkResult.error}`, 'error');
-      return;
-    }
-
-    if (clerkResult.alreadyExists) {
-      addNotification('ℹ️ Utente già registrato su Clerk', 'warning');
-    } else {
-      addNotification('✅ Invito Clerk inviato con successo!', 'success');
-    }
-
-    const message = `🎉 *Sei stato invitato su Academy Hub!*
-
-👋 Ciao ${player.name}!
-
-Sei stato aggiunto come *⚽ Giocatore* nell'app Academy Hub.
-
-📱 *INSTALLA L'APP SUL TUO TELEFONO:*
-
-*PASSO 1 - Apri il link:*
-https://calcio-presenze.vercel.app
-
-*PASSO 2 - Installa l'app:*
-
-*iPhone/Safari:*
-- Tocca il pulsante "Condividi" (📤)
-- Scorri e tocca "Aggiungi a Home"
-- Tocca "Aggiungi"
-
-*Android/Chrome:*
-- Tocca i 3 puntini (⋮) in alto
-- Tocca "Installa app" o "Aggiungi a schermata Home"
-- Tocca "Installa"
-
-*PASSO 3 - Registrati con questa email:*
-${player.email}
-
-*PASSO 4 - Trova l'icona ⚽ Academy Hub sul tuo telefono!*
-
-✅ Il tuo account è già autorizzato!
-
-⚽ *Academy Hub* - Gestione Presenze`;
-
-    setGeneratedInvite(message);
-    setShowInviteMessage(true);
   };
 
   const teamsList = Object.values(teams);
@@ -3301,12 +3247,53 @@ ${player.email}
                     variant="danger"
                     style={{ padding: '10px' }}
                   />
-                  <Button
-                    title="📤 Reinvia Invito"
-                    onPress={() => handleResendInvite(player)}
-                    variant="primary"
-                    style={{ flex: 1, padding: '10px' }}
-                  /> 
+                 <Button
+  title="📤 Reinvia Invito"
+  onPress={() => {
+    // Controllo se ha email
+    if (!player.email || player.email.trim() === '') {
+      addNotification('⚠️ Aggiungi prima l\'email a questo giocatore', 'error');
+      return;
+    }
+
+    const message = `🎉 *Sei stato invitato su Academy Hub!*
+
+👋 Ciao ${player.name}!
+
+Sei stato aggiunto come *⚽ Giocatore* nell'app Academy Hub.
+
+📱 *INSTALLA L'APP SUL TUO TELEFONO:*
+
+*PASSO 1 - Apri il link:*
+https://calcio-presenze.vercel.app
+
+*PASSO 2 - Installa l'app:*
+
+*iPhone/Safari:*
+- Tocca il pulsante "Condividi" (📤)
+- Scorri e tocca "Aggiungi a Home"
+- Tocca "Aggiungi"
+
+*Android/Chrome:*
+- Tocca i 3 puntini (⋮) in alto
+- Tocca "Installa app" o "Aggiungi a schermata Home"
+- Tocca "Installa"
+
+*PASSO 3 - Registrati con questa email:*
+${player.email}
+
+*PASSO 4 - Trova l'icona ⚽ Academy Hub sul tuo telefono!*
+
+✅ Il tuo account è già autorizzato!
+
+⚽ *Academy Hub* - Gestione Presenze`;
+
+    setGeneratedInvite(message);
+    setShowInviteMessage(true);
+  }}
+  variant="primary"
+  style={{ flex: 1, padding: '10px' }}
+/> 
                 </div>
               </div>
             ))}
@@ -3444,96 +3431,97 @@ ${player.email}
             </div>
           </div>
         )}
-
+      </div>
+    
         {/* Modal Messaggio Invito Generato */}
-        {showInviteMessage && (
-          <div style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1001,
-          }}>
-            <div style={{
-              ...styles.card,
-              maxWidth: '600px',
-              margin: '20px',
-            }}>
-              <h3 style={{ marginBottom: '16px', color: colors.success }}>
-                ✅ Invito Pronto!
-              </h3>
-              
-              <p style={{ marginBottom: '16px', color: colors.gray }}>
-                Copia il messaggio qui sotto e invialo al giocatore via WhatsApp, Email o SMS:
-              </p>
+{showInviteMessage && (
+  <div style={{
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1001,
+  }}>
+    <div style={{
+      ...styles.card,
+      maxWidth: '600px',
+      margin: '20px',
+    }}>
+      <h3 style={{ marginBottom: '16px', color: colors.success }}>
+        ✅ Invito Pronto!
+      </h3>
+      
+      <p style={{ marginBottom: '16px', color: colors.gray }}>
+        Copia il messaggio qui sotto e invialo al giocatore via WhatsApp, Email o SMS:
+      </p>
 
-              <div style={{
-                padding: '16px',
-                backgroundColor: colors.background,
-                borderRadius: '8px',
-                marginBottom: '16px',
-                fontFamily: 'monospace',
-                fontSize: '14px',
-                whiteSpace: 'pre-wrap',
-                border: `2px solid ${colors.lightGray}`,
-                maxHeight: '300px',
-                overflowY: 'auto',
-              }}>
-                {generatedInvite}
-              </div>
+      <div style={{
+        padding: '16px',
+        backgroundColor: colors.background,
+        borderRadius: '8px',
+        marginBottom: '16px',
+        fontFamily: 'monospace',
+        fontSize: '14px',
+        whiteSpace: 'pre-wrap',
+        border: `2px solid ${colors.lightGray}`,
+        maxHeight: '300px',
+        overflowY: 'auto',
+      }}>
+        {generatedInvite}
+      </div>
 
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <Button
-                  title="📋 Copia Invito"
-                  onPress={() => {
-                    navigator.clipboard.writeText(generatedInvite);
-                    addNotification('Invito copiato! Invialo via WhatsApp/Email', 'success');
-                  }}
-                  variant="primary"
-                  style={{ flex: 1 }}
-                />
-                <Button
-                  title="📱 Invia su WhatsApp"
-                  onPress={() => {
-                    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(generatedInvite)}`;
-                    window.open(whatsappUrl, '_blank');
-                  }}
-                  variant="success"
-                  style={{ flex: 1 }}
-                />
-                <Button
-                  title="Chiudi"
-                  onPress={() => {
-                    setShowInviteMessage(false);
-                    setGeneratedInvite('');
-                  }}
-                  variant="outline"
-                />
-              </div>
-            </div>
-          </div>
-        )}
+      <div style={{ display: 'flex', gap: '12px' }}>
+        <Button
+          title="📋 Copia Invito"
+          onPress={() => {
+            navigator.clipboard.writeText(generatedInvite);
+            addNotification('Invito copiato! Invialo via WhatsApp/Email', 'success');
+          }}
+          variant="primary"
+          style={{ flex: 1 }}
+        />
+        <Button
+          title="📱 Invia su WhatsApp"
+          onPress={() => {
+            const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(generatedInvite)}`;
+            window.open(whatsappUrl, '_blank');
+          }}
+          variant="success"
+          style={{ flex: 1 }}
+        />
+        <Button
+          title="Chiudi"
+          onPress={() => {
+            setShowInviteMessage(false);
+            setGeneratedInvite('');
+          }}
+          variant="outline"
+        />
       </div>
     </div>
+  </div>
+)}
+</div>
+
   );
 };
-// ===== USERS MANAGEMENT (✅ CORRETTO CON FIX CLERK API) =====
+// ===== USERS MANAGEMENT (ADMIN ONLY) =====
 const UsersList = ({ onBack }) => {
   const { addNotification } = useNotification();
   const [users, setUsers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState(null);
   const [newRole, setNewRole] = useState('');
-  const [showInviteModal, setShowInviteModal] = useState(false);
-  const [inviteData, setInviteData] = useState({ email: '', name: '', role: 'player' });
-  const [generatedInvite, setGeneratedInvite] = useState('');
-  const [showInviteMessage, setShowInviteMessage] = useState(false);
-
+const [showInviteModal, setShowInviteModal] = useState(false);
+const [inviteData, setInviteData] = useState({ email: '', name: '', role: 'player' });
+const [generatedInvite, setGeneratedInvite] = useState('');
+const [showInviteMessage, setShowInviteMessage] = useState(false);
+  // Carica utenti dal database
   useEffect(() => {
     const loadUsers = async () => {
       try {
@@ -3551,6 +3539,7 @@ const UsersList = ({ onBack }) => {
     loadUsers();
   }, []);
 
+  // Approva/Modifica ruolo utente
   const handleUpdateRole = async (userId, role) => {
     try {
       const response = await fetch('/api/db', {
@@ -3564,6 +3553,7 @@ const UsersList = ({ onBack }) => {
       });
 
       if (response.ok) {
+        // Aggiorna la lista locale
         setUsers(prev => prev.map(u => 
           u.id === userId ? { ...u, role, approved_by: 'admin' } : u
         ));
@@ -3579,6 +3569,7 @@ const UsersList = ({ onBack }) => {
     }
   };
 
+  // Elimina utente
   const handleDeleteUser = async (userId) => {
     if (!window.confirm('Sei sicuro di voler eliminare questo utente?')) return;
 
@@ -3603,56 +3594,37 @@ const UsersList = ({ onBack }) => {
       addNotification('Errore eliminazione utente', 'error');
     }
   };
+// Crea nuovo utente e genera invito
+const handleCreateInvite = async () => {
+  if (!inviteData.email || !inviteData.name) {
+    addNotification('Compila tutti i campi', 'error');
+    return;
+  }
 
-  // ✅ CORRETTO - Crea invito e chiama Clerk API
-  const handleCreateInvite = async () => {
-    if (!inviteData.email || !inviteData.name) {
-      addNotification('Compila tutti i campi', 'error');
-      return;
-    }
+  try {
+    const response = await fetch('/api/db', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'create_invited_user',
+        data: {
+          id: `usr_${Date.now()}`,
+          email: inviteData.email,
+          role: inviteData.role,
+          approved_by: 'admin',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }
+      })
+    });
 
-    if (!validateEmail(inviteData.email)) {
-      addNotification('Email non valida', 'error');
-      return;
-    }
-
-    addNotification('📤 Creazione invito in corso...', 'info');
-
-    const nameParts = inviteData.name.trim().split(' ');
-    const firstName = nameParts[0] || '';
-    const lastName = nameParts.slice(1).join(' ') || '';
-
-    const clerkResult = await clerkAPI.inviteUser(inviteData.email, firstName, lastName);
-
-    if (!clerkResult.success) {
-      addNotification(`❌ Errore Clerk: ${clerkResult.error}`, 'error');
-      return;
-    }
-
-    try {
-      const response = await fetch('/api/db', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'create_invited_user',
-          data: {
-            id: `usr_${Date.now()}`,
-            email: inviteData.email,
-            role: inviteData.role,
-            approved_by: 'admin',
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          }
-        })
-      });
-
-      if (response.ok) {
-        const roleText = inviteData.role === 'admin' ? 'Amministratore' : 
-                         inviteData.role === 'coach' ? 'Allenatore' : 'Giocatore';
-        const roleEmoji = inviteData.role === 'admin' ? '👔' : 
-                          inviteData.role === 'coach' ? '🎽' : '⚽';
-        
-        const message = `🎉 *Sei stato invitato su Academy Hub!*
+    if (response.ok) {
+      const roleText = inviteData.role === 'admin' ? 'Amministratore' : 
+                       inviteData.role === 'coach' ? 'Allenatore' : 'Giocatore';
+      const roleEmoji = inviteData.role === 'admin' ? '👔' : 
+                        inviteData.role === 'coach' ? '🎽' : '⚽';
+      
+    const message = `🎉 *Sei stato invitato su Academy Hub!*
 
 👋 Ciao ${inviteData.name}!
 
@@ -3684,87 +3656,28 @@ ${inviteData.email}
 
 ⚽ *Academy Hub* - Gestione Presenze`;
 
-        setGeneratedInvite(message);
-        setShowInviteMessage(true);
-        setShowInviteModal(false);
-        
-        const updatedUsers = await fetch('/api/db?table=user_roles');
-        const data = await updatedUsers.json();
-        setUsers(data.user_roles || []);
-        
-        addNotification('✅ Invito creato con successo!', 'success');
-      } else {
-        addNotification('Errore creazione invito nel database', 'error');
-      }
-    } catch (error) {
-      console.error('Errore:', error);
+      setGeneratedInvite(message);
+      setShowInviteMessage(true);
+      setShowInviteModal(false);
+      
+      const updatedUsers = await fetch('/api/db?table=user_roles');
+      const data = await updatedUsers.json();
+      setUsers(data.user_roles || []);
+      
+      addNotification('Invito creato con successo!', 'success');
+    } else {
       addNotification('Errore creazione invito', 'error');
     }
-  };
+  } catch (error) {
+    console.error('Errore:', error);
+    addNotification('Errore creazione invito', 'error');
+  }
+};
 
-  // ✅ CORRETTO - Reinvia invito chiama Clerk API
-  const handleResendInvite = async (user) => {
-    if (!validateEmail(user.email)) {
-      addNotification('⚠️ Email non valida', 'error');
-      return;
-    }
-
-    addNotification('📤 Reinvio in corso...', 'info');
-
-    const clerkResult = await clerkAPI.inviteUser(user.email, '', '');
-
-    if (!clerkResult.success) {
-      addNotification(`❌ Errore Clerk: ${clerkResult.error}`, 'error');
-      return;
-    }
-
-    if (clerkResult.alreadyExists) {
-      addNotification('ℹ️ Utente già registrato su Clerk', 'warning');
-    } else {
-      addNotification('✅ Invito Clerk reinviato con successo!', 'success');
-    }
-
-    const roleText = user.role === 'admin' ? 'Amministratore' : 
-                     user.role === 'coach' ? 'Allenatore' : 'Giocatore';
-    const roleEmoji = user.role === 'admin' ? '👔' : 
-                      user.role === 'coach' ? '🎽' : '⚽';
-    
-    const message = `🎉 *Sei stato invitato su Academy Hub!*
-
-👋 Ciao!
-
-Sei stato aggiunto come *${roleEmoji} ${roleText}* nell'app Academy Hub.
-
-📱 *INSTALLA L'APP SUL TUO TELEFONO:*
-
-*PASSO 1 - Apri il link:*
-https://calcio-presenze.vercel.app
-
-*PASSO 2 - Installa l'app:*
-
-*iPhone/Safari:*
-- Tocca il pulsante "Condividi" (📤)
-- Scorri e tocca "Aggiungi a Home"
-- Tocca "Aggiungi"
-
-*Android/Chrome:*
-- Tocca i 3 puntini (⋮) in alto
-- Tocca "Installa app" o "Aggiungi a schermata Home"
-- Tocca "Installa"
-
-*PASSO 3 - Registrati con questa email:*
-${user.email}
-
-*PASSO 4 - Trova l'icona ⚽ Academy Hub sul tuo telefono!*
-
-✅ Il tuo account è già autorizzato!
-
-⚽ *Academy Hub* - Gestione Presenze`;
-
-    setGeneratedInvite(message);
-    setShowInviteMessage(true);
-  };
-
+const handleCopyInvite = () => {
+  navigator.clipboard.writeText(generatedInvite);
+  addNotification('Invito copiato! Invialo via WhatsApp/Email', 'success');
+};
   const getRoleBadge = (role) => {
     switch(role) {
       case 'admin': return { text: '👔 Admin', variant: 'danger' };
@@ -3804,6 +3717,7 @@ ${user.email}
           </div>
         ) : (
           <>
+            {/* Statistiche */}
             <div style={styles.card}>
               <h3 style={{ marginBottom: '16px', color: colors.primary }}>📊 Riepilogo</h3>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '16px' }}>
@@ -3834,80 +3748,122 @@ ${user.email}
               </div>
             </div>
 
-            <Button
-              title="➕ Invita Nuovo Utente"
-              onPress={() => {
-                setInviteData({ email: '', name: '', role: 'player' });
-                setShowInviteModal(true);
-              }}
-              variant="success"
-              style={{ marginBottom: '24px', width: '100%', padding: '16px' }}
-            />
-
+            {/* Lista Utenti */}
+            {/* Pulsante Invita */}
+<Button
+  title="➕ Invita Nuovo Utente"
+  onPress={() => {
+    setInviteData({ email: '', name: '', role: 'player' });
+    setShowInviteModal(true);
+  }}
+  variant="success"
+  style={{ marginBottom: '24px', width: '100%', padding: '16px' }}
+/>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '16px' }}>
-              {users
-                .filter(user => user.email !== 'giovannibuoli@gmail.com')
-                .map((user) => {
-                  const badge = getRoleBadge(user.role);
-                  return (
-                    <div key={user.id} style={styles.card}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '16px' }}>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: '16px', fontWeight: '700', marginBottom: '8px', wordBreak: 'break-all' }}>
-                            {user.email}
-                          </div>
-                          <Badge text={badge.text} variant={badge.variant} />
+             
+                {users
+  .filter(user => user.email !== 'giovannibuoli@gmail.com')  // Nascondi Super Admin
+  .map((user) => {
+                const badge = getRoleBadge(user.role);
+                return (
+                  <div key={user.id} style={styles.card}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '16px' }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '16px', fontWeight: '700', marginBottom: '8px', wordBreak: 'break-all' }}>
+                          {user.email}
                         </div>
-                      </div>
-
-                      {user.approved_by && (
-                        <div style={{ fontSize: '12px', color: colors.gray, marginBottom: '16px' }}>
-                          ✅ Approvato da: {user.approved_by}
-                        </div>
-                      )}
-
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        {user.email !== 'giovannibuoli@gmail.com' ? (
-                          <>
-                            <Button
-                              title="✏️ Modifica"
-                              onPress={() => {
-                                setSelectedUser(user);
-                                setNewRole(user.role);
-                              }}
-                              variant="secondary"
-                              style={{ flex: 1, padding: '10px' }}
-                            />
-                            <Button
-                              title="🗑️"
-                              onPress={() => handleDeleteUser(user.id)}
-                              variant="danger"
-                              style={{ padding: '10px' }}
-                            />
-                            <Button
-                              title="📤 Reinvia Invito"
-                              onPress={() => handleResendInvite(user)}
-                              variant="primary"
-                              style={{ flex: 1, padding: '10px' }}
-                            />
-                          </>
-                        ) : (
-                          <div style={{
-                            padding: '10px',
-                            backgroundColor: `${colors.primary}20`,
-                            borderRadius: '8px',
-                            textAlign: 'center',
-                            color: colors.primary,
-                            fontWeight: '600',
-                            fontSize: '14px',
-                          }}>
-                            👑 Super Admin - Protetto
-                          </div>
-                        )}
+                        <Badge text={badge.text} variant={badge.variant} />
                       </div>
                     </div>
-                  );
-                })}
+
+                    {user.approved_by && (
+                      <div style={{ fontSize: '12px', color: colors.gray, marginBottom: '16px' }}>
+                        ✅ Approvato da: {user.approved_by}
+                      </div>
+                    )}
+
+                   <div style={{ display: 'flex', gap: '8px' }}>
+  {user.email !== 'giovannibuoli@gmail.com' ? (
+    <>
+      <Button
+        title="✏️ Modifica"
+        onPress={() => {
+          setSelectedUser(user);
+          setNewRole(user.role);
+        }}
+        variant="secondary"
+        style={{ flex: 1, padding: '10px' }}
+      />
+      <Button
+        title="🗑️"
+        onPress={() => handleDeleteUser(user.id)}
+        variant="danger"
+        style={{ padding: '10px' }}
+      />
+      <Button
+  title="📤 Reinvia Invito"
+  onPress={() => {
+    const roleText = user.role === 'admin' ? 'Amministratore' : 
+                     user.role === 'coach' ? 'Allenatore' : 'Giocatore';
+    const roleEmoji = user.role === 'admin' ? '👔' : 
+                      user.role === 'coach' ? '🎽' : '⚽';
+    
+    const message = `🎉 *Sei stato invitato su Academy Hub!*
+
+👋 Ciao!
+
+Sei stato aggiunto come *${roleEmoji} ${roleText}* nell'app Academy Hub.
+
+📱 *INSTALLA L'APP SUL TUO TELEFONO:*
+
+*PASSO 1 - Apri il link:*
+https://calcio-presenze.vercel.app
+
+*PASSO 2 - Installa l'app:*
+
+*iPhone/Safari:*
+- Tocca il pulsante "Condividi" (📤)
+- Scorri e tocca "Aggiungi a Home"
+- Tocca "Aggiungi"
+
+*Android/Chrome:*
+- Tocca i 3 puntini (⋮) in alto
+- Tocca "Installa app" o "Aggiungi a schermata Home"
+- Tocca "Installa"
+
+*PASSO 3 - Registrati con questa email:*
+${user.email}
+
+*PASSO 4 - Trova l'icona ⚽ Academy Hub sul tuo telefono!*
+
+✅ Il tuo account è già autorizzato!
+
+⚽ *Academy Hub* - Gestione Presenze`;
+
+    setGeneratedInvite(message);
+    setShowInviteMessage(true);
+  }}
+  variant="primary"
+  style={{ flex: 1, padding: '10px' }}
+/>
+    </>
+  ) : (
+    <div style={{
+      padding: '10px',
+      backgroundColor: `${colors.primary}20`,
+      borderRadius: '8px',
+      textAlign: 'center',
+      color: colors.primary,
+      fontWeight: '600',
+      fontSize: '14px',
+    }}>
+      👑 Super Admin - Protetto
+    </div>
+  )}
+</div> 
+                  </div>
+                );
+              })}
             </div>
           </>
         )}
@@ -3971,160 +3927,156 @@ ${user.email}
             </div>
           </div>
         )}
-
         {/* Modal Crea Invito */}
-        {showInviteModal && (
-          <div style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-          }}>
-            <div style={{
-              ...styles.card,
-              maxWidth: '500px',
-              margin: '20px',
-            }}>
-              <h3 style={{ marginBottom: '16px', color: colors.primary }}>
-                ➕ Invita Nuovo Utente
-              </h3>
-              
-              <Input
-                label="Nome Completo"
-                value={inviteData.name}
-                onChange={(val) => setInviteData(prev => ({ ...prev, name: val }))}
-                placeholder="Es: Mario Rossi"
-                required
-              />
+{showInviteModal && (
+  <div style={{
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1000,
+  }}>
+    <div style={{
+      ...styles.card,
+      maxWidth: '500px',
+      margin: '20px',
+    }}>
+      <h3 style={{ marginBottom: '16px', color: colors.primary }}>
+        ➕ Invita Nuovo Utente
+      </h3>
+      
+      <Input
+        label="Nome Completo"
+        value={inviteData.name}
+        onChange={(val) => setInviteData(prev => ({ ...prev, name: val }))}
+        placeholder="Es: Mario Rossi"
+        required
+      />
 
-              <Input
-                label="Email"
-                type="email"
-                value={inviteData.email}
-                onChange={(val) => setInviteData(prev => ({ ...prev, email: val }))}
-                placeholder="Es: mario.rossi@email.com"
-                required
-              />
+      <Input
+        label="Email"
+        type="email"
+        value={inviteData.email}
+        onChange={(val) => setInviteData(prev => ({ ...prev, email: val }))}
+        placeholder="Es: mario.rossi@email.com"
+        required
+      />
 
-              <Select
-                label="Ruolo"
-                value={inviteData.role}
-                onChange={(val) => setInviteData(prev => ({ ...prev, role: val }))}
-                options={[
-                  { value: 'admin', label: '👔 Amministratore' },
-                  { value: 'coach', label: '🎽 Allenatore' },
-                  { value: 'player', label: '⚽ Giocatore' },
-                ]}
-              />
+      <Select
+        label="Ruolo"
+        value={inviteData.role}
+        onChange={(val) => setInviteData(prev => ({ ...prev, role: val }))}
+        options={[
+          { value: 'admin', label: '👔 Amministratore' },
+          { value: 'coach', label: '🎽 Allenatore' },
+          { value: 'player', label: '⚽ Giocatore' },
+        ]}
+      />
 
-              <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
-                <Button
-                  title="📤 Crea e Genera Invito"
-                  onPress={handleCreateInvite}
-                  variant="success"
-                  style={{ flex: 1 }}
-                />
-                <Button
-                  title="Annulla"
-                  onPress={() => setShowInviteModal(false)}
-                  variant="outline"
-                  style={{ flex: 1 }}
-                />
-              </div>
-            </div>
-          </div>
-        )}
+      <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
+        <Button
+          title="📤 Crea e Genera Invito"
+          onPress={handleCreateInvite}
+          variant="success"
+          style={{ flex: 1 }}
+        />
+        <Button
+          title="Annulla"
+          onPress={() => setShowInviteModal(false)}
+          variant="outline"
+          style={{ flex: 1 }}
+        />
+      </div>
+    </div>
+  </div>
+)}
 
-        {/* Modal Messaggio Invito Generato */}
-        {showInviteMessage && (
-          <div style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1001,
-          }}>
-            <div style={{
-              ...styles.card,
-              maxWidth: '600px',
-              margin: '20px',
-            }}>
-              <h3 style={{ marginBottom: '16px', color: colors.success }}>
-                ✅ Invito Creato con Successo!
-              </h3>
-              
-              <p style={{ marginBottom: '16px', color: colors.gray }}>
-                Copia il messaggio qui sotto e invialo al nuovo utente via WhatsApp, Email o SMS:
-              </p>
+{/* Modal Messaggio Invito Generato */}
+{showInviteMessage && (
+  <div style={{
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1001,
+  }}>
+    <div style={{
+      ...styles.card,
+      maxWidth: '600px',
+      margin: '20px',
+    }}>
+      <h3 style={{ marginBottom: '16px', color: colors.success }}>
+        ✅ Invito Creato con Successo!
+      </h3>
+      
+      <p style={{ marginBottom: '16px', color: colors.gray }}>
+        Copia il messaggio qui sotto e invialo al nuovo utente via WhatsApp, Email o SMS:
+      </p>
 
-              <div style={{
-                padding: '16px',
-                backgroundColor: colors.background,
-                borderRadius: '8px',
-                marginBottom: '16px',
-                fontFamily: 'monospace',
-                fontSize: '14px',
-                whiteSpace: 'pre-wrap',
-                border: `2px solid ${colors.lightGray}`,
-                maxHeight: '300px',
-                overflowY: 'auto',
-              }}>
-                {generatedInvite}
-              </div>
+      <div style={{
+        padding: '16px',
+        backgroundColor: colors.background,
+        borderRadius: '8px',
+        marginBottom: '16px',
+        fontFamily: 'monospace',
+        fontSize: '14px',
+        whiteSpace: 'pre-wrap',
+        border: `2px solid ${colors.lightGray}`,
+        maxHeight: '300px',
+        overflowY: 'auto',
+      }}>
+        {generatedInvite}
+      </div>
 
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <Button
-                  title="📋 Copia Invito"
-                  onPress={() => {
-                    navigator.clipboard.writeText(generatedInvite);
-                    addNotification('Invito copiato! Invialo via WhatsApp/Email', 'success');
-                  }}
-                  variant="primary"
-                  style={{ flex: 1 }}
-                />
-                <Button
-                  title="📱 Invia su WhatsApp"
-                  onPress={() => {
-                    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(generatedInvite)}`;
-                    window.open(whatsappUrl, '_blank');
-                  }}
-                  variant="success"
-                  style={{ flex: 1 }}
-                />
-                <Button
-                  title="Chiudi"
-                  onPress={() => {
-                    setShowInviteMessage(false);
-                    setGeneratedInvite('');
-                    setInviteData({ email: '', name: '', role: 'player' });
-                  }}
-                  variant="outline"
-                />
-              </div>
-            </div>
-          </div>
-        )}
+      <div style={{ display: 'flex', gap: '12px' }}>
+        <Button
+          title="📋 Copia Invito"
+          onPress={handleCopyInvite}
+          variant="primary"
+          style={{ flex: 1 }}
+        />
+        <Button
+          title="📱 Invia su WhatsApp"
+          onPress={() => {
+            const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(generatedInvite)}`;
+            window.open(whatsappUrl, '_blank');
+          }}
+          variant="success"
+          style={{ flex: 1 }}
+        />
+        <Button
+          title="Chiudi"
+          onPress={() => {
+            setShowInviteMessage(false);
+            setGeneratedInvite('');
+            setInviteData({ email: '', name: '', role: 'player' });
+          }}
+          variant="outline"
+        />
+      </div>
+    </div>
+  </div>
+)}
       </div>
     </div>
   );
 };
-
 // ===== PLAYER EVENTS (convocazioni per giocatore) =====
 const PlayerEvents = ({ onLogout }) => {
   const { events, teams, players, addEventResponse } = useAppContext();
   const { addNotification } = useNotification();
   
+  // Per demo, usiamo il primo giocatore della prima squadra
   const firstTeamId = Object.keys(players)[0];
   const currentPlayer = players[firstTeamId]?.[0];
 
@@ -4168,9 +4120,10 @@ const PlayerEvents = ({ onLogout }) => {
 
   const selectedEvent = selectedEventId ? events.find(e => e.id === selectedEventId) : null;
 
+  // Calcola statistiche personali
   const totalEvents = myEvents.length;
-  const respondedEvents = myEvents.filter(e => e.responses?.[currentPlayer.id]).length;
-  const presentCount = myEvents.filter(e => e.responses?.[currentPlayer.id]?.status === 'presente').length;
+  const respondedEvents = myEvents.filter(e => e.responses[currentPlayer.id]).length;
+  const presentCount = myEvents.filter(e => e.responses[currentPlayer.id]?.status === 'presente').length;
   const percentage = totalEvents > 0 ? Math.round((presentCount / totalEvents) * 100) : 0;
 
   return (
@@ -4182,10 +4135,11 @@ const PlayerEvents = ({ onLogout }) => {
             <div style={styles.headerTitle}>⚽ Le Mie Convocazioni</div>
             <div style={styles.headerSubtitle}>{currentPlayer.name} • #{currentPlayer.number}</div>
           </div>
-          <UserButton />
+        <UserButton />
         </div>
       </div>
       <div style={styles.content}>
+        {/* Statistiche Personali */}
         <div style={styles.card}>
           <h3 style={{ marginBottom: '16px', color: colors.primary }}>📊 Le Mie Statistiche</h3>
           <div style={{
@@ -4219,7 +4173,6 @@ const PlayerEvents = ({ onLogout }) => {
             </div>
           </div>
         </div>
-
         {myEvents.length === 0 ? (
           <div style={styles.card}>
             <div style={{ textAlign: 'center', padding: '48px', color: colors.gray }}>
@@ -4231,7 +4184,7 @@ const PlayerEvents = ({ onLogout }) => {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {myEvents.map(event => {
               const team = teams[event.teamId];
-              const myResponse = event.responses?.[currentPlayer.id];
+              const myResponse = event.responses[currentPlayer.id];
               const needsResponse = !myResponse && isFuture(event.date);
 
               return (
@@ -4376,7 +4329,7 @@ const PlayerEvents = ({ onLogout }) => {
               overflow: 'auto',
             }}>
               <h3 style={{ marginBottom: '16px', color: colors.primary }}>
-                {selectedEvent.responses?.[currentPlayer.id] ? '✏️ Modifica la tua risposta' : '📝 Conferma la tua presenza'}
+                {selectedEvent.responses[currentPlayer.id] ? '✏️ Modifica la tua risposta' : '📝 Conferma la tua presenza'}
               </h3>
               <div style={{ marginBottom: '24px' }}>
                 <div style={{ fontWeight: '700', marginBottom: '8px', fontSize: '16px' }}>
@@ -4480,7 +4433,7 @@ const PlayerEvents = ({ onLogout }) => {
 
               <div style={{ display: 'flex', gap: '12px' }}>
                 <Button
-                  title={selectedEvent.responses?.[currentPlayer.id] ? "💾 Aggiorna Risposta" : "📤 Invia Risposta"}
+                  title={selectedEvent.responses[currentPlayer.id] ? "💾 Aggiorna Risposta" : "📤 Invia Risposta"}
                   onPress={submitResponse}
                   variant="success"
                   style={{ flex: 1 }}
@@ -4511,63 +4464,69 @@ const MainApp = () => {
   const [currentScreen, setCurrentScreen] = useState('role-selection');  
   const [currentRole, setCurrentRole] = useState('');
   const [screenData, setScreenData] = useState(null);
-  const [userRoleStatus, setUserRoleStatus] = useState('checking'); 
-  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
-  const [userRoleData, setUserRoleData] = useState(null);
-  const { user } = useUser();
-  const { signOut } = useClerk();
+// Nuovi stati per controllo ruoli
+const [userRoleStatus, setUserRoleStatus] = useState('checking'); 
+const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+const [userRoleData, setUserRoleData] = useState(null);
+const { user } = useUser(); // Hook Clerk per ottenere dati utente
+const { signOut } = useClerk(); // Hook per logout
+// Controllo ruolo utente al login
+useEffect(() => {
+  const checkUserRole = async () => {
+    if (!user?.primaryEmailAddress?.emailAddress) {
+      setIsCheckingAuth(false);
+      return;
+    }
 
-  useEffect(() => {
-    const checkUserRole = async () => {
-      if (!user?.primaryEmailAddress?.emailAddress) {
-        setIsCheckingAuth(false);
-        return;
-      }
+    const userEmail = user.primaryEmailAddress.emailAddress;
+    console.log('🔍 Controllo ruolo per:', userEmail);
 
-      const userEmail = user.primaryEmailAddress.emailAddress;
-      console.log('🔍 Controllo ruolo per:', userEmail);
+    try {
+      // Query al database user_roles
+      const response = await fetch('/api/db?table=user_roles&email=' + encodeURIComponent(userEmail));
+      const data = await response.json();
 
-      try {
-        const response = await fetch('/api/db?table=user_roles&email=' + encodeURIComponent(userEmail));
-        const data = await response.json();
-
-        if (data.user_roles && data.user_roles.length > 0) {
-          const roleData = data.user_roles[0];
-          
-          if (['admin', 'coach', 'player'].includes(roleData.role)) {
-            console.log('✅ Utente autorizzato:', roleData.role);
-            setUserRoleData(roleData);
-            setUserRoleStatus('authorized');
-            setCurrentRole(roleData.role);
-          } else {
-            console.log('⏳ Utente in attesa di approvazione');
-            setUserRoleStatus('pending');
-          }
+      if (data.user_roles && data.user_roles.length > 0) {
+        const roleData = data.user_roles[0];
+        
+        // Controlla il ruolo
+        if (['admin', 'coach', 'player'].includes(roleData.role)) {
+          console.log('✅ Utente autorizzato:', roleData.role);
+          setUserRoleData(roleData);
+          setUserRoleStatus('authorized');
+          setCurrentRole(roleData.role);
         } else {
-          console.log('❌ Utente non trovato nel database');
+          console.log('⏳ Utente in attesa di approvazione');
           setUserRoleStatus('pending');
         }
-      } catch (error) {
-        console.error('❌ Errore controllo ruolo:', error);
-        setUserRoleStatus('unauthorized');
-      } finally {
-        setIsCheckingAuth(false);
+      } else {
+        console.log('❌ Utente non trovato nel database');
+        setUserRoleStatus('pending');
       }
-    };
-
-    if (user) {
-      checkUserRole();
+    } catch (error) {
+      console.error('❌ Errore controllo ruolo:', error);
+      setUserRoleStatus('unauthorized');
+    } finally {
+      setIsCheckingAuth(false);
     }
-  }, [user]);
+  };
 
-  const [pwaInstalled, setPwaInstalled] = useState(false);
+  if (user) {
+    checkUserRole();
+  }
+}, [user]);
+
+const [pwaInstalled, setPwaInstalled] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [serviceWorkerReady, setServiceWorkerReady] = useState(false);
 
+// ===== PWA SERVICE WORKER =====
   useEffect(() => {
+    // Controlla se l'app è già installata
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
     setPwaInstalled(isStandalone);
 
+    // Registra Service Worker con callbacks
     const onSuccess = (registration) => {
       console.log('✅ Service Worker registrato con successo:', registration.scope);
       setServiceWorkerReady(true);
@@ -4590,15 +4549,18 @@ const MainApp = () => {
       onRegistered
     });
 
+    // Richiedi permessi notifiche dopo 3 secondi
     const notificationTimer = setTimeout(() => {
       NotificationManager.requestNotificationPermission().then(granted => {
         setNotificationsEnabled(granted);
         if (granted) {
+          // Invia notifica di test
           NotificationManager.sendTestNotification();
         }
       });
     }, 3000);
 
+    // Listener per quando l'app viene installata
     const handleAppInstalled = () => {
       console.log('🎉 App installata con successo!');
       setPwaInstalled(true);
@@ -4611,121 +4573,124 @@ const MainApp = () => {
       window.removeEventListener('appinstalled', handleAppInstalled);
     };
   }, []);
+  // Loading screen durante controllo autorizzazione
+if (isCheckingAuth) {
+  return (
+    <div style={{
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.background,
+    }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ fontSize: '64px', marginBottom: '16px' }}>🔐</div>
+        <div style={{ fontSize: '18px', color: colors.primary }}>Verifica autorizzazione...</div>
+      </div>
+    </div>
+  );
+}
 
-  if (isCheckingAuth) {
-    return (
+// Schermata "In attesa di approvazione"
+if (userRoleStatus === 'pending') {
+  return (
+    <div style={styles.container}>
+      <style>{animations}</style>
       <div style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: colors.background,
+        ...styles.header,
+        background: `linear-gradient(135deg, ${colors.warning} 0%, ${colors.accent} 100%)`,
       }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '64px', marginBottom: '16px' }}>🔐</div>
-          <div style={{ fontSize: '18px', color: colors.primary }}>Verifica autorizzazione...</div>
+        <div style={styles.headerContent}>
+          <div>
+            <div style={styles.headerTitle}>⏳ Account in Attesa</div>
+            <div style={styles.headerSubtitle}>Academy Hub</div>
+          </div>
+          <UserButton />
         </div>
       </div>
-    );
-  }
-
-  if (userRoleStatus === 'pending') {
-    return (
-      <div style={styles.container}>
-        <style>{animations}</style>
+      <div style={styles.content}>
         <div style={{
-          ...styles.header,
-          background: `linear-gradient(135deg, ${colors.warning} 0%, ${colors.accent} 100%)`,
+          ...styles.card,
+          maxWidth: '600px',
+          margin: '40px auto',
+          textAlign: 'center',
         }}>
-          <div style={styles.headerContent}>
-            <div>
-              <div style={styles.headerTitle}>⏳ Account in Attesa</div>
-              <div style={styles.headerSubtitle}>Academy Hub</div>
-            </div>
-            <UserButton />
-          </div>
-        </div>
-        <div style={styles.content}>
+          <div style={{ fontSize: '80px', marginBottom: '24px' }}>⏳</div>
+          <h2 style={{ marginBottom: '16px', color: colors.warning }}>
+            Account in Attesa di Approvazione
+          </h2>
+          <p style={{ fontSize: '16px', color: colors.gray, marginBottom: '24px' }}>
+            Il tuo account è stato creato con successo, ma è in attesa di approvazione 
+            da parte di un amministratore.
+          </p>
           <div style={{
-            ...styles.card,
-            maxWidth: '600px',
-            margin: '40px auto',
-            textAlign: 'center',
+            padding: '20px',
+            backgroundColor: colors.background,
+            borderRadius: '12px',
+            marginBottom: '24px',
           }}>
-            <div style={{ fontSize: '80px', marginBottom: '24px' }}>⏳</div>
-            <h2 style={{ marginBottom: '16px', color: colors.warning }}>
-              Account in Attesa di Approvazione
-            </h2>
-            <p style={{ fontSize: '16px', color: colors.gray, marginBottom: '24px' }}>
-              Il tuo account è stato creato con successo, ma è in attesa di approvazione 
-              da parte di un amministratore.
-            </p>
-            <div style={{
-              padding: '20px',
-              backgroundColor: colors.background,
-              borderRadius: '12px',
-              marginBottom: '24px',
-            }}>
-              <div style={{ fontSize: '14px', color: colors.gray }}>
-                <strong>Email registrata:</strong><br/>
-                {user?.primaryEmailAddress?.emailAddress}
-              </div>
+            <div style={{ fontSize: '14px', color: colors.gray }}>
+              <strong>Email registrata:</strong><br/>
+              {user?.primaryEmailAddress?.emailAddress}
             </div>
-            <p style={{ fontSize: '14px', color: colors.gray }}>
-              Riceverai una notifica via email quando il tuo account verrà attivato.
-              <br/><br/>
-              Per informazioni, contatta gli amministratori.
-            </p>
           </div>
+          <p style={{ fontSize: '14px', color: colors.gray }}>
+            Riceverai una notifica via email quando il tuo account verrà attivato.
+            <br/><br/>
+            Per informazioni, contatta gli amministratori.
+          </p>
         </div>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
-  if (userRoleStatus === 'unauthorized') {
-    return (
-      <div style={styles.container}>
-        <style>{animations}</style>
-        <div style={styles.content}>
-          <div style={{
-            ...styles.card,
-            maxWidth: '600px',
-            margin: '40px auto',
-            textAlign: 'center',
-          }}>
-            <div style={{ fontSize: '80px', marginBottom: '24px' }}>❌</div>
-            <h2 style={{ marginBottom: '16px', color: colors.danger }}>
-              Errore di Autenticazione
-            </h2>
-            <p style={{ fontSize: '16px', color: colors.gray, marginBottom: '24px' }}>
-              Si è verificato un errore durante la verifica delle tue credenziali.
-            </p>
-            <Button
-              title="Riprova"
-              onPress={() => window.location.reload()}
-              variant="primary"
-            />
-          </div>
+// Schermata errore autorizzazione
+if (userRoleStatus === 'unauthorized') {
+  return (
+    <div style={styles.container}>
+      <style>{animations}</style>
+      <div style={styles.content}>
+        <div style={{
+          ...styles.card,
+          maxWidth: '600px',
+          margin: '40px auto',
+          textAlign: 'center',
+        }}>
+          <div style={{ fontSize: '80px', marginBottom: '24px' }}>❌</div>
+          <h2 style={{ marginBottom: '16px', color: colors.danger }}>
+            Errore di Autenticazione
+          </h2>
+          <p style={{ fontSize: '16px', color: colors.gray, marginBottom: '24px' }}>
+            Si è verificato un errore durante la verifica delle tue credenziali.
+          </p>
+          <Button
+            title="Riprova"
+            onPress={() => window.location.reload()}
+            variant="primary"
+          />
         </div>
       </div>
-    );
+    </div>
+  );
+}
+const handleLogin = () => {
+  // Usa il ruolo dal database (già impostato da useEffect)
+  if (currentRole === 'player') {
+    setCurrentScreen('my-events');
+  } else {
+    setCurrentScreen('dashboard');
   }
-
-  const handleLogin = () => {
-    if (currentRole === 'player') {
-      setCurrentScreen('my-events');
-    } else {
-      setCurrentScreen('dashboard');
-    }
-  };
+};
 
   const handleLogout = async () => {
-    try {
-      await signOut();
-    } catch (error) {
-      console.error('Errore logout:', error);
-    }
-  };
+  try {
+    await signOut();
+    // Clerk farà redirect automaticamente
+  } catch (error) {
+    console.error('Errore logout:', error);
+  }
+};
 
   const handleNavigate = (screen, data = null) => {
     setCurrentScreen(screen);
@@ -4739,18 +4704,20 @@ const MainApp = () => {
 
   return (
     <>
-      {currentScreen === 'role-selection' && userRoleStatus === 'authorized' && (
-        <div>
-          {(() => {
-            if (currentRole === 'player') {
-              setCurrentScreen('my-events');
-            } else {
-              setCurrentScreen('dashboard');
-            }
-            return null;
-          })()}
-        </div>
-      )}
+{currentScreen === 'role-selection' && userRoleStatus === 'authorized' && (
+  <div>
+    {/* Auto-redirect quando autorizzato */}
+    {(() => {
+      // Redirect automatico basato sul ruolo
+      if (currentRole === 'player') {
+        setCurrentScreen('my-events');
+      } else {
+        setCurrentScreen('dashboard');
+      }
+      return null;
+    })()}
+  </div>
+)}
       {currentScreen === 'dashboard' && (
         <Dashboard role={currentRole} onNavigate={handleNavigate} onLogout={handleLogout} />
       )}
@@ -4767,8 +4734,8 @@ const MainApp = () => {
         <PlayersList onNavigate={handleNavigate} onBack={handleBack} />
       )}
       {currentScreen === 'users' && (
-        <UsersList onBack={handleBack} />
-      )}
+  <UsersList onBack={handleBack} />
+)}
       {currentScreen === 'events' && (
         <EventsList onNavigate={handleNavigate} onBack={handleBack} />
       )}
@@ -4792,7 +4759,7 @@ const MainApp = () => {
   );
 };
 
-// ===== ROOT APP COMPONENT =====
+// Componente Root che deregistra il Service Worker vecchio
 const App = () => {
   console.log('🚀 Componente App principale renderizzato!');
   
@@ -4803,6 +4770,7 @@ const App = () => {
   const [showCookiePolicy, setShowCookiePolicy] = useState(false);
   const [showDataManagement, setShowDataManagement] = useState(false);
 
+  // Deregistra Service Worker all'avvio per evitare problemi di cache
   useEffect(() => {
     console.log('🔧 useEffect di pulizia Service Worker attivato');
     if ('serviceWorker' in navigator) {
@@ -4816,6 +4784,7 @@ const App = () => {
         }
       });
       
+      // Pulisci anche la cache
       if ('caches' in window) {
         caches.keys().then(function(names) {
           for (let name of names) {
@@ -4827,6 +4796,7 @@ const App = () => {
     }
   }, []);
 
+  // Loading screen mentre Clerk carica
   if (!clerkLoaded) {
     console.log('⏳ Clerk sta caricando...');
     return (
@@ -4853,6 +4823,7 @@ const App = () => {
       <NotificationProvider>
         <AppProvider>
           {!isSignedIn ? (
+            // Utente NON loggato - mostra schermata login
             <>
               {console.log('🔓 Mostrando schermata login - Utente NON loggato')}
               <div style={{
@@ -4862,16 +4833,16 @@ const App = () => {
                 justifyContent: 'center',
                 background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.primaryDark} 100%)`,
               }}>
-                <div style={{
-                  backgroundColor: colors.white,
-                  padding: '60px 50px',
-                  borderRadius: '24px',
-                  boxShadow: '0 25px 70px rgba(0,0,0,0.25)',
-                  textAlign: 'center',
-                  maxWidth: '480px',
-                  width: '92%',
-                  margin: '0 auto',
-                }}>
+               <div style={{
+        backgroundColor: colors.white,
+        padding: '60px 50px',
+        borderRadius: '24px',
+        boxShadow: '0 25px 70px rgba(0,0,0,0.25)',
+        textAlign: 'center',
+        maxWidth: '480px',
+        width: '92%',
+        margin: '0 auto',
+      }}>
                   <div style={{ fontSize: '80px', marginBottom: '24px' }}>⚽</div>
                   <h1 style={{ 
                     marginBottom: '12px', 
@@ -4904,6 +4875,7 @@ const App = () => {
               </div>
             </>
           ) : (
+            // Utente loggato - mostra app principale
             <>
               {console.log('🔐 Mostrando app principale - Utente loggato')}
               <MainApp />
@@ -4941,8 +4913,10 @@ const App = () => {
         </div>
       </div>
 
+      {/* Cookie Banner */}
       <CookieBanner />
 
+      {/* GDPR Modals */}
       {showPrivacy && <PrivacyPolicy onBack={() => setShowPrivacy(false)} />}
       {showTerms && <TermsOfService onBack={() => setShowTerms(false)} />}
       {showCookiePolicy && <CookiePolicy onBack={() => setShowCookiePolicy(false)} />}
