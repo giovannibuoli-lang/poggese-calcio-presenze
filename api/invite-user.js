@@ -1,27 +1,77 @@
-// API endpoint per invitare utenti su Clerk
+// API endpoint per invitare/reinvitare utenti su Clerk
 export default async function handler(req, res) {
-  // Solo metodo POST
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    
     let { email, firstName, lastName } = req.body;
 
-// Valori di default se mancano
-firstName = firstName?.trim() || 'Giocatore';
-lastName = lastName?.trim() || 'Academy';
+    // Valori di default
+    firstName = firstName?.trim() || 'Giocatore';
+    lastName = lastName?.trim() || 'Academy';
 
-// Validazione solo email
-if (!email) {
-  return res.status(400).json({ 
-    error: 'Email è obbligatoria' 
-  });
-}
+    if (!email) {
+      return res.status(400).json({ error: 'Email è obbligatoria' });
+    }
 
-    // Chiama API Clerk per creare l'utente
-    const clerkResponse = await fetch('https://api.clerk.com/v1/users', {
+    // PASSO 1: Verifica se l'utente esiste già
+    const searchResponse = await fetch(
+      `https://api.clerk.com/v1/users?email_address=${encodeURIComponent(email)}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${process.env.CLERK_SECRET_KEY}`,
+        },
+      }
+    );
+
+    const existingUsers = await searchResponse.json();
+
+    // PASSO 2: Se esiste, reinvia invito
+    if (existingUsers.length > 0) {
+      const userId = existingUsers[0].id;
+      
+      // Reinvia email di invito
+      const resendResponse = await fetch(
+        `https://api.clerk.com/v1/invitations/${userId}/revoke`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${process.env.CLERK_SECRET_KEY}`,
+          },
+        }
+      );
+
+      // Crea nuovo invito
+      const inviteResponse = await fetch('https://api.clerk.com/v1/invitations', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.CLERK_SECRET_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email_address: email,
+          notify: true,
+        }),
+      });
+
+      if (!inviteResponse.ok) {
+        const errorData = await inviteResponse.json();
+        return res.status(500).json({ 
+          error: 'Errore nel reinvio invito',
+          details: errorData 
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: 'Invito reinviato con successo!',
+        userExists: true
+      });
+    }
+
+    // PASSO 3: Se non esiste, crea nuovo utente
+    const createResponse = await fetch('https://api.clerk.com/v1/users', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${process.env.CLERK_SECRET_KEY}`,
@@ -33,35 +83,24 @@ if (!email) {
         last_name: lastName,
         skip_password_checks: true,
         skip_password_requirement: true,
-        notify: true, // Invia email di invito automaticamente
+        notify: true,
       }),
     });
 
-    const clerkData = await clerkResponse.json();
+    const createData = await createResponse.json();
 
-    // Gestione errori Clerk
-    if (!clerkResponse.ok) {
-      console.error('Clerk API Error:', clerkData);
-      
-      // Se l'utente esiste già
-      if (clerkData.errors?.[0]?.code === 'form_identifier_exists') {
-        return res.status(409).json({ 
-          error: 'Utente già esistente',
-          message: 'Questo indirizzo email è già registrato su Clerk'
-        });
-      }
-
-      return res.status(clerkResponse.status).json({ 
-        error: 'Errore nella creazione utente Clerk',
-        details: clerkData 
+    if (!createResponse.ok) {
+      return res.status(createResponse.status).json({ 
+        error: 'Errore nella creazione utente',
+        details: createData 
       });
     }
 
-    // Successo!
     return res.status(200).json({
       success: true,
-      clerkUserId: clerkData.id,
-      message: 'Utente creato e invito inviato con successo!'
+      clerkUserId: createData.id,
+      message: 'Utente creato e invito inviato!',
+      userExists: false
     });
 
   } catch (error) {
